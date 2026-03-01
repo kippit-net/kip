@@ -129,50 +129,7 @@ The manifest format for the Kippit protocol is defined in **KIP-0002**. Other pr
 
 An **extension** adds behavior to a KIP network. Everything beyond the core concepts (nodes, roles, manifest, layers) is an extension.
 
-### 4.1 What Extensions Define
-
-An extension is a KIP document (KIP-NNNN) that specifies:
-
-1. **What it does** — the capability it provides (e.g. "chunk-based file exchange", "JWT authentication", "WebRTC signaling")
-2. **Which layer(s) it operates on** — discovery, connection, exchange, semantics, or multiple
-3. **How nodes negotiate it** — how nodes agree to use this extension (manifest rules, handshake fields, configuration)
-4. **How nodes communicate** — message formats, state machines, error handling specific to this extension
-5. **What it requires** — dependencies on other extensions, if any
-
-### 4.2 Extension Identification
-
-Extensions are identified by their KIP number. The namespace:
-
-| Range | Purpose |
-|---|---|
-| 0001 | Core protocol (this document) |
-| 0002 | Manifest format (KIP-0002) |
-| 0003-0099 | Official extensions |
-| 0100+ | Community extensions |
-
-### 4.3 Extension Negotiation
-
-How two nodes agree on which extensions to use depends on the context:
-
-**Node joining a network (PEER → REGISTRY):** The REGISTRY's manifest declares required and available extensions. The PEER either supports them or doesn't join. This is asymmetric — the REGISTRY sets the rules.
-
-**Two peers connecting (PEER ↔ PEER):** Both peers declare their extensions. The active set is the intersection — only extensions supported by both are used. This is symmetric — neither peer has authority over the other.
-
-**Node configured directly:** A node may be configured to use specific extensions without negotiation (e.g. a CLI tool configured as a BT client doesn't need to negotiate — it just speaks BT protocol).
-
-The specific negotiation mechanism (binary handshake, JSON exchange, out-of-band configuration) is defined by the relevant extensions, not by core.
-
-### 4.4 Extension Composability
-
-Extensions are composable. A node may run any combination of extensions simultaneously. For example:
-
-- A Kippit runner: chunk-exchange + hls-streaming + jwt-auth + aes-encryption + kippit-tracker-discovery
-- A BT client: bt-wire-exchange + bt-tracker-discovery
-- A hybrid node: chunk-exchange + bt-bridge + kippit-tracker-discovery + bt-tracker-discovery
-- A WebRTC signaling server: webrtc-signaling (just one extension, role: SIGNALER)
-- A LAN video server: chunk-exchange + hls-streaming + mdns-discovery (no auth, no encryption)
-
-The combination is determined by the node's configuration and the networks it participates in.
+Extension identification, spec requirements, negotiation, and composability are defined in **KIP-0003**.
 
 ## 5. What KIP Core Does NOT Define
 

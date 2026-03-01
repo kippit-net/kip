@@ -10,32 +10,29 @@ KIP does not define how data is exchanged, how peers connect, or what security m
 |---|---|---|---|
 | [KIP-0001](KIP-0001-core.md) | Core Protocol | Draft | Nodes, roles, layers, manifests, extensions |
 | [KIP-0002](KIP-0002-manifest.md) | Manifest | Draft | Manifest format, roles, network map |
+| [KIP-0003](KIP-0003-extensions.md) | Extensions | Draft | Extension identification, spec requirements, registry |
 
-## Extensions (planned)
+## Built-in Extensions (planned)
 
-| KIP | Name | Layer | Description |
+| Name | Layer | Roles | Description |
 |---|---|---|---|
-| KIP-0003 | Chunk Exchange | 3 (Exchange) | Chunk-based file transfer between peers |
-| KIP-0004 | KIP Tracker | 1 (Discovery) | Tracker-based peer discovery and signaling |
-| KIP-0005 | Auth | 4 (Semantics) | JWT authentication (ES256) |
-| KIP-0006 | Encryption | 4 (Semantics) | Data encryption (AES) |
-| KIP-0007 | Streaming | 4 (Semantics) | Sequential priority, HLS manifest |
-| KIP-0008 | Sync | 4 (Semantics) | Multi-node replication |
-| KIP-0009 | Messaging | 4 (Semantics) | Real-time small data |
-| KIP-0010 | BT Bridge | 3 (Exchange) | BitTorrent wire protocol compatibility |
-| KIP-0011 | WebRTC Signaling | 2 (Connection) | WebRTC SDP/ICE exchange |
-| KIP-0012 | mDNS Discovery | 1 (Discovery) | LAN zero-config discovery |
+| `chunk-exchange` | Exchange | peer | Chunk-based file transfer between peers |
+| `kippit-tracker` | Discovery | tracker, peer | WebSocket-based peer discovery and signaling |
+| `jwt-auth` | Semantics | tracker, peer | JWT authentication (ES256) |
+| `aes-encryption` | Semantics | peer | Data encryption (AES) |
+| `hls-streaming` | Semantics | peer | Sequential priority, HLS manifest |
+| `sync` | Semantics | peer | Multi-node replication |
+| `messaging` | Semantics | peer | Real-time small data |
+| `bt-bridge` | Exchange | peer | BitTorrent wire protocol compatibility |
+| `webrtc-signaling` | Connection | tracker, peer | WebRTC SDP/ICE exchange |
+| `mdns-discovery` | Discovery | peer | LAN zero-config discovery |
+
+External extensions use repository paths (e.g. `github.com/someone/cool-extension`). See KIP-0003.
 
 ## Architecture
 
 - [protocol-layer-model.md](protocol-layer-model.md) — 5-layer model with roles (design document)
 - [tracker-manifest-authority.md](tracker-manifest-authority.md) — federation governance model (design document)
-
-## Numbering
-
-- **0001:** Core protocol
-- **0002-0099:** Official extensions
-- **0100+:** Community extensions
 
 ## Status
 

@@ -98,21 +98,25 @@ The manifest doesn't enumerate sub-capabilities as roles. Instead, extensions an
 
 ## 4. Extensions
 
-The `extensions` field lists active extensions with their versions and configuration:
+The `extensions` field lists active extensions with their versions and configuration. Extension identification follows KIP-0003 — built-in extensions use short names, external extensions use repository paths.
 
 ```json
 {
   "extensions": [
     {
-      "kip": 3,
+      "name": "chunk-exchange",
       "version": "1.0.0"
     },
     {
-      "kip": 4,
+      "name": "jwt-auth",
       "version": "1.0.0",
       "config": {
         "method": "ES256"
       }
+    },
+    {
+      "name": "github.com/someone/custom-discovery",
+      "version": "0.2.0"
     }
   ]
 }
@@ -120,7 +124,7 @@ The `extensions` field lists active extensions with their versions and configura
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `kip` | integer | YES | KIP number of the extension. |
+| `name` | string | YES | Extension identifier. Short name = built-in, path with dots = external. See KIP-0003. |
 | `version` | string | YES | Extension version (semver). |
 | `config` | object | NO | Extension-specific configuration. Schema defined by the extension spec. |
 
@@ -134,7 +138,7 @@ The `rules` field contains network governance and participation requirements:
 {
   "rules": {
     "governance": "federated",
-    "required_extensions": [4, 5]
+    "required_extensions": ["jwt-auth", "aes-encryption"]
   }
 }
 ```
@@ -142,7 +146,7 @@ The `rules` field contains network governance and participation requirements:
 | Field | Type | Description |
 |---|---|---|
 | `governance` | string | `"federated"` (default), `"democratic"`, `"hybrid"`. See KIP-0001 section 3.2. |
-| `required_extensions` | int[] | KIP numbers of extensions that participants MUST support. |
+| `required_extensions` | string[] | Extension names that participants MUST support. See KIP-0003. |
 
 Extensions MAY define additional rule fields. For example, an auth extension (KIP-0004) might add `"auth_required": true` to rules. A chunk exchange extension might add `"chunk_size": 2097152`. The rules object is open — unknown fields are ignored by nodes that don't understand them.
 
@@ -195,15 +199,15 @@ The network map enables **mesh discovery** — a node joining a network learns a
   "name": "kippit.net",
   "roles": ["tracker"],
   "extensions": [
-    {"kip": 3, "version": "1.0.0"},
-    {"kip": 4, "version": "1.0.0", "config": {"method": "ES256"}},
-    {"kip": 5, "version": "1.0.0", "config": {"cipher": "AES-128-CBC"}},
-    {"kip": 6, "version": "1.0.0"},
-    {"kip": 10, "version": "1.0.0"}
+    {"name": "kippit-tracker", "version": "1.0.0"},
+    {"name": "jwt-auth", "version": "1.0.0", "config": {"method": "ES256"}},
+    {"name": "aes-encryption", "version": "1.0.0", "config": {"cipher": "AES-128-CBC"}},
+    {"name": "hls-streaming", "version": "1.0.0"},
+    {"name": "webrtc-signaling", "version": "1.0.0"}
   ],
   "rules": {
     "governance": "federated",
-    "required_extensions": [4, 5]
+    "required_extensions": ["jwt-auth", "aes-encryption"]
   },
   "network": [
     {
@@ -230,12 +234,12 @@ The network map enables **mesh discovery** — a node joining a network learns a
   "name": "my-nas",
   "roles": ["peer"],
   "extensions": [
-    {"kip": 3, "version": "1.0.0"},
-    {"kip": 4, "version": "1.0.0"},
-    {"kip": 5, "version": "1.0.0"},
-    {"kip": 6, "version": "1.0.0"},
-    {"kip": 10, "version": "1.0.0"},
-    {"kip": 11, "version": "1.0.0"}
+    {"name": "chunk-exchange", "version": "1.0.0"},
+    {"name": "jwt-auth", "version": "1.0.0"},
+    {"name": "aes-encryption", "version": "1.0.0"},
+    {"name": "hls-streaming", "version": "1.0.0"},
+    {"name": "webrtc-signaling", "version": "1.0.0"},
+    {"name": "mdns-discovery", "version": "1.0.0"}
   ],
   "network": [
     {
@@ -267,7 +271,7 @@ The network map enables **mesh discovery** — a node joining a network learns a
   "version": "1.0.0",
   "roles": ["tracker"],
   "extensions": [
-    {"kip": 9, "version": "1.0.0"}
+    {"name": "bt-bridge", "version": "1.0.0"}
   ],
   "rules": {
     "governance": "federated"
@@ -284,7 +288,7 @@ The network map enables **mesh discovery** — a node joining a network learns a
   "version": "1.0.0",
   "roles": ["tracker"],
   "extensions": [
-    {"kip": 10, "version": "1.0.0"}
+    {"name": "webrtc-signaling", "version": "1.0.0"}
   ],
   "description": "WebRTC signaling only. No discovery, no relay.",
   "network": [

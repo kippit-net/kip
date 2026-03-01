@@ -123,9 +123,7 @@ A node joining a network discovers topology through manifests — each manifest 
 
 ### 3.4 Manifest Format
 
-The KIP spec does not mandate a manifest format. A manifest may be JSON, YAML, binary, a static file, a dynamic API response, or a negotiated handshake message. What matters is that the content is interpretable by the receiving node.
-
-Extensions MAY define specific manifest formats for their domain (e.g. a tracker extension defines a JSON manifest schema, a BT bridge extension uses BEP-compatible announce format).
+The manifest format for the Kippit protocol is defined in **KIP-0002**. Other protocols using KIP as a framework may define their own manifest format.
 
 ## 4. Extensions
 
@@ -148,7 +146,8 @@ Extensions are identified by their KIP number. The namespace:
 | Range | Purpose |
 |---|---|
 | 0001 | Core protocol (this document) |
-| 0002-0099 | Official extensions |
+| 0002 | Manifest format (KIP-0002) |
+| 0003-0099 | Official extensions |
 | 0100+ | Community extensions |
 
 ### 4.3 Extension Negotiation

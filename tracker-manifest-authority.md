@@ -1,54 +1,54 @@
-# Pomysł: Tracker manifest — tracker jako autorytet federacji
+# Idea: Tracker Manifest — Tracker as Federation Authority
 
-**Status:** Aktywny — wpływa na KIP-0002
+**Status:** Active — influences KIP-0002
 
 ## Idea
 
-Tracker (REGISTRY) nie jest głupim relay. Jest **autorytetem który definiuje reguły komunikacji** w swojej sieci. Federacja, nie demokracja.
+The tracker (REGISTRY) is not a dumb relay. It is an **authority that defines the rules of communication** in its network. Federation, not democracy.
 
-Peer łączy się z trackerem i dostaje **manifest** — zestaw reguł: jakie extensiony są wymagane, jak ogłaszać zasoby, jak się łączyć z innymi peerami, push czy pull. Peer albo akceptuje reguły albo odchodzi.
+A peer connects to a tracker and receives a **manifest** — a set of rules: which extensions are required, how to announce resources, how to connect to other peers, push or pull. The peer either accepts the rules or leaves.
 
-## Konsekwencje
+## Consequences
 
-### Tracker decyduje, nie peer
+### The Tracker Decides, Not the Peer
 
-- Tracker mówi: "w mojej sieci auth jest wymagany" → peer dostarcza JWT albo zostaje odrzucony
-- Tracker mówi: "ogłaszaj się jako host, nie listuj plików" → peer mówi "jestem X, hostuję serwer A" zamiast wysyłać 50000 resource_ids
-- Tracker mówi: "nowi peerzy dostają push o zmianach" → peer nasłuchuje
-- Tracker mówi: "połączenia przez WebRTC, signaling przeze mnie" → peer używa signaling tego trackera
+- Tracker says: "auth is required in my network" → peer provides a JWT or gets rejected
+- Tracker says: "announce yourself as a host, don't list files" → peer says "I'm X, I host server A" instead of sending 50,000 resource_ids
+- Tracker says: "new peers get push notifications about changes" → peer listens
+- Tracker says: "connections via WebRTC, signaling through me" → peer uses this tracker's signaling
 
-### Różne trackery, różne reguły
+### Different Trackers, Different Rules
 
-| Tracker | Reguły |
+| Tracker | Rules |
 |---|---|
-| Nasz (kippit.net) | Auth required, encryption required, push notifications, announce per-server |
-| Publiczny (community) | No auth, no encryption, announce per-file, pull only |
-| Korporacyjny (self-hosted) | Auth required, encryption required, no external peers, LAN only |
+| Ours (kippit.net) | Auth required, encryption required, push notifications, announce per-server |
+| Public (community) | No auth, no encryption, announce per-file, pull only |
+| Corporate (self-hosted) | Auth required, encryption required, no external peers, LAN only |
 | BT bridge tracker | BT-compatible announce format, no KIP extensions |
 
-RFC definiuje **mechanizm manifestu** (jak tracker komunikuje reguły), nie **konkretne reguły** (to decyzja operatora).
+The RFC defines the **manifest mechanism** (how the tracker communicates rules), not the **specific rules** (that's the operator's decision).
 
-### Nie demokracja
+### Not a Democracy
 
-W blockchainie peery negocjują konsensus. Tu nie. Tracker jest federatorem — jak serwer Matrix, jak instancja Mastodon. Operator trackera ustala politykę. Peer wybiera z jakim trackerem chce pracować.
+In a blockchain, peers negotiate consensus. Not here. The tracker is a federator — like a Matrix server, like a Mastodon instance. The tracker operator sets the policy. The peer chooses which tracker to work with.
 
-RFC MOŻE definiować demokratyczne mechanizmy (np. peer voting na reguły) jako opcjonalny extension. Ale core model to federacja.
+The RFC MAY define democratic mechanisms (e.g. peer voting on rules) as an optional extension. But the core model is federation.
 
-### Announce: hosty, nie pliki
+### Announce: Hosts, Not Files
 
-Przy 50000 plików peer nie powinien ogłaszać listy plików. Zamiast tego:
+With 50,000 files, a peer should not announce the file list. Instead:
 
 ```
-"Jestem peer X, hostuję pliki z serwera A, B, C"
+"I'm peer X, I host files from server A, B, C"
 ```
 
-Lista plików to detal dostępny przez API (faza 1+) lub bezpośrednio od peera (wire protocol). Tracker wie KTO hostuje, nie CO hostuje.
+The file list is a detail available through the API (phase 1+) or directly from the peer (wire protocol). The tracker knows WHO hosts, not WHAT they host.
 
-Ale: tracker MOŻE wymagać per-file announce (np. publiczny tracker do sharing). To zależy od manifestu.
+However: the tracker MAY require per-file announce (e.g. a public tracker for sharing). It depends on the manifest.
 
-### Wpływ na KIP-0002
+### Impact on KIP-0002
 
-Sekcja 4.2 (hello handshake) powinna być przebudowana jako **manifest delivery**:
+Section 4.2 (hello handshake) should be rebuilt as **manifest delivery**:
 
 ```json
 {
@@ -67,9 +67,9 @@ Sekcja 4.2 (hello handshake) powinna być przebudowana jako **manifest delivery*
 }
 ```
 
-Peer odpowiada akceptacją lub rozłącza się.
+The peer responds with acceptance or disconnects.
 
-## Powiązane
+## Related
 
-- [protocol-layer-model.md](protocol-layer-model.md) — model warstwowy (tracker = REGISTRY rola)
-- [KIP-0002](KIP-0002-peer-discovery.md) — discovery & signaling protocol (manifest w sekcji 4.2)
+- [protocol-layer-model.md](protocol-layer-model.md) — layer model (tracker = REGISTRY role)
+- [KIP-0002](KIP-0002-peer-discovery.md) — discovery & signaling protocol (manifest in section 4.2)

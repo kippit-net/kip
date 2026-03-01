@@ -1,24 +1,24 @@
 # KIP — Kippit Improvement Proposals
 
-Specyfikacja protokołu [Kippit](https://github.com/kippit-net) — P2P media platform. KIP to stack protokołów (jak TCP/IP), nie jeden protokół.
+Protocol specification for [Kippit](https://github.com/kippit-net) — a P2P media platform. KIP is a protocol stack (like TCP/IP), not a single protocol.
 
-## Model warstwowy
+## Layer Model
 
 ```
-5. Application    CLI, Web App, Mobile — poza spec
-4. Semantics      Extensiony: streaming, sync, auth, encryption
+5. Application    CLI, Web App, Mobile — outside of spec
+4. Semantics      Extensions: streaming, sync, auth, encryption
 3. Exchange       Wire protocol: handshake, bitfield, request, piece
 2. Connection     Transport: WebRTC, TCP, HTTP, in-memory
 1. Discovery      Registry: tracker, mDNS, DHT, BT tracker
 ```
 
-Role: PEER (ma/chce dane), REGISTRY (wie kto ma co), SIGNALER (relay connection setup), RELAY (transparent proxy).
+Roles: PEER (has/wants data), REGISTRY (knows who has what), SIGNALER (relays connection setup), RELAY (transparent proxy).
 
-Pełny opis modelu: [protocol-layer-model.md](protocol-layer-model.md)
+Full model description: [protocol-layer-model.md](protocol-layer-model.md)
 
 ## Core Protocol
 
-| KIP | Nazwa | Warstwa | Status | Opis |
+| KIP | Name | Layer | Status | Description |
 |---|---|---|---|---|
 | [KIP-0001](KIP-0001-wire-protocol.md) | Wire Protocol | 3 (Exchange) | Draft v0.1 | Framing, message types, chunk exchange (PEER ↔ PEER) |
 | [KIP-0002](KIP-0002-peer-discovery.md) | Discovery & Signaling | 1+2 (Discovery + Connection) | Draft v0.2 | Discovery interface, KIP tracker protocol, mDNS, signaling (PEER ↔ REGISTRY/SIGNALER) |
@@ -26,7 +26,7 @@ Pełny opis modelu: [protocol-layer-model.md](protocol-layer-model.md)
 
 ## Extensions (planned)
 
-| KIP | Nazwa | Warstwa | Opis |
+| KIP | Name | Layer | Description |
 |---|---|---|---|
 | KIP-0004 | Auth | 4 (Semantics) | JWT authentication (ES256) |
 | KIP-0005 | Encryption | 4 (Semantics) | Per-chunk encryption (AES-128-CBC) |
@@ -35,25 +35,25 @@ Pełny opis modelu: [protocol-layer-model.md](protocol-layer-model.md)
 | KIP-0008 | Messaging | 4 (Semantics) | Real-time small data |
 | KIP-0009 | BT Bridge | 3 (Exchange) | BitTorrent wire protocol compatibility |
 
-## Architektura decyzji
+## Architecture Decisions
 
-- [protocol-layer-model.md](protocol-layer-model.md) — 5-warstwowy model protokołu z rolami
-- [tracker-manifest-authority.md](tracker-manifest-authority.md) — tracker jako autorytet federacji, governance model
+- [protocol-layer-model.md](protocol-layer-model.md) — 5-layer protocol model with roles
+- [tracker-manifest-authority.md](tracker-manifest-authority.md) — tracker as federation authority, governance model
 
-## Numeracja
+## Numbering
 
-- **0001-0003:** Core protocol (stabilny, mały)
-- **0004-0099:** Oficjalne extensiony
-- **0100+:** Community extensiony
+- **0001-0003:** Core protocol (stable, small)
+- **0004-0099:** Official extensions
+- **0100+:** Community extensions
 
 ## Status
 
-| Status | Znaczenie |
+| Status | Meaning |
 |---|---|
-| Draft | W trakcie pisania, może się zmienić fundamentalnie |
-| Review | Kompletny, wymaga przeglądu |
-| Accepted | Zatwierdzony, gotowy do implementacji |
-| Final | Zaimplementowany i przetestowany |
+| Draft | Work in progress, may change fundamentally |
+| Review | Complete, requires review |
+| Accepted | Approved, ready for implementation |
+| Final | Implemented and tested |
 
 ## Contributing
 

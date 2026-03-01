@@ -6,28 +6,28 @@
 
 ## Abstract
 
-KIP-0002 definiuje dwa interfejsy:
-1. **Discovery** (warstwa 1) — jak PEER znajduje inne PEERy. Kto ma resource X?
-2. **Signaling** (warstwa 2) — jak PEER nawiązuje połączenie z innym PEERem za NATem.
+KIP-0002 defines two interfaces:
+1. **Discovery** (layer 1) — how a PEER finds other PEERs. Who has resource X?
+2. **Signaling** (layer 2) — how a PEER establishes a connection with another PEER behind NAT.
 
-Spec definiuje **interfejs abstrakcyjny** + **referencyjną implementację** (KIP tracker protocol). Inne implementacje (BT tracker, mDNS, DHT, static peer list) są dopuszczalne jeśli spełniają interfejs.
+The spec defines an **abstract interface** + a **reference implementation** (KIP tracker protocol). Other implementations (BT tracker, mDNS, DHT, static peer list) are acceptable as long as they satisfy the interface.
 
-## 1. Role
+## 1. Roles
 
-| Rola | Opis | Mówi protokołem |
+| Role | Description | Speaks Protocol |
 |---|---|---|
-| PEER | Ma dane lub chce dane. Klient discovery i signaling. | KIP-0001 (wire) + discovery client |
-| REGISTRY | Wie kto ma co. Odpowiada na zapytania discovery. | Discovery protocol (server-side) |
-| SIGNALER | Przekazuje wiadomości connection setup między PEERami. | Signaling protocol |
-| RELAY | Przekazuje dane gdy P2P niemożliwy. Transparent proxy. | KIP-0001 (wire) |
+| PEER | Has data or wants data. Discovery and signaling client. | KIP-0001 (wire) + discovery client |
+| REGISTRY | Knows who has what. Responds to discovery queries. | Discovery protocol (server-side) |
+| SIGNALER | Relays connection setup messages between PEERs. | Signaling protocol |
+| RELAY | Forwards data when P2P is impossible. Transparent proxy. | KIP-0001 (wire) |
 
-Jeden node może pełnić wiele ról. Nasza implementacja: server = REGISTRY + SIGNALER + RELAY.
+A single node may fulfill multiple roles. Our implementation: server = REGISTRY + SIGNALER + RELAY.
 
-## 2. Discovery interface (warstwa 1)
+## 2. Discovery Interface (Layer 1)
 
-### 2.1 Abstrakcyjny interfejs
+### 2.1 Abstract Interface
 
-Każda implementacja discovery MUSI dostarczyć:
+Every discovery implementation MUST provide:
 
 ```
 DiscoveryProvider:
@@ -37,64 +37,64 @@ DiscoveryProvider:
 
 PeerInfo:
   peer_id: bytes[16]
-  capabilities: string[]       // np. ["signaling", "relay", "direct-http"]
-  connection_hint: string      // jak się połączyć (adres, transport type)
+  capabilities: string[]       // e.g. ["signaling", "relay", "direct-http"]
+  connection_hint: string      // how to connect (address, transport type)
 ```
 
-Nie narzuca transportu. Implementacja może być WebSocket, HTTP, UDP, plik na dysku, cokolwiek.
+Does not mandate a transport. The implementation may be WebSocket, HTTP, UDP, a file on disk, anything.
 
-### 2.2 Implementacje discovery
+### 2.2 Discovery Implementations
 
-| Implementacja | Transport | Scope | Uwagi |
+| Implementation | Transport | Scope | Notes |
 |---|---|---|---|
-| **KIP tracker** | WebSocket (sekcja 4) | WAN | Referencyjna. Nasz server. |
-| **mDNS/DNS-SD** | UDP multicast | LAN | Zero-config, sekcja 5 |
-| **BT tracker** | HTTP (BEP 3) | WAN | Przez bridge extension |
-| **DHT** | UDP (BEP 5-like) | WAN | Przyszłe, decentralized |
-| **Static peer list** | Plik / env var | Dowolny | Dev/testy |
+| **KIP tracker** | WebSocket (section 4) | WAN | Reference. Our server. |
+| **mDNS/DNS-SD** | UDP multicast | LAN | Zero-config, section 5 |
+| **BT tracker** | HTTP (BEP 3) | WAN | Via bridge extension |
+| **DHT** | UDP (BEP 5-like) | WAN | Future, decentralized |
+| **Static peer list** | File / env var | Any | Dev/tests |
 
-PEER może używać wielu implementacji jednocześnie (resolver chain, US-0015).
+A PEER may use multiple implementations simultaneously (resolver chain, US-0015).
 
-## 3. Signaling interface (warstwa 2)
+## 3. Signaling Interface (Layer 2)
 
-### 3.1 Abstrakcyjny interfejs
+### 3.1 Abstract Interface
 
-Signaling jest potrzebny gdy dwaj PEERy nie mogą połączyć się bezpośrednio (NAT). SIGNALER przekazuje wiadomości setup.
+Signaling is needed when two PEERs cannot connect directly (NAT). The SIGNALER relays setup messages.
 
 ```
 SignalingProvider:
   Signal(to_peer_id, payload) → ack/error
 
-payload: opaque bytes — spec nie wie co jest w środku.
+payload: opaque bytes — the spec does not know what's inside.
          WebRTC: SDP offer/answer, ICE candidates.
-         Inny transport: cokolwiek potrzebuje.
+         Other transport: whatever the connection setup requires.
 ```
 
-Signaling jest **transport-specific**. WebRTC potrzebuje SDP/ICE exchange. TCP nie potrzebuje signaling (direct connect). In-memory pipe nie potrzebuje signaling.
+Signaling is **transport-specific**. WebRTC needs SDP/ICE exchange. TCP doesn't need signaling (direct connect). In-memory pipes don't need signaling.
 
-### 3.2 Kiedy signaling jest potrzebny
+### 3.2 When Signaling is Needed
 
-| Transport (warstwa 2) | Wymaga signaling? |
+| Transport (Layer 2) | Requires Signaling? |
 |---|---|
-| WebRTC data channel | TAK — SDP offer/answer + ICE candidates |
-| TCP direct (publiczny IP) | NIE |
-| HTTP LAN (mDNS) | NIE |
-| In-memory pipe (testy) | NIE |
-| QUIC (przyszłe) | Zależy od NAT |
+| WebRTC data channel | YES — SDP offer/answer + ICE candidates |
+| TCP direct (public IP) | NO |
+| HTTP LAN (mDNS) | NO |
+| In-memory pipe (tests) | NO |
+| QUIC (future) | Depends on NAT |
 
-Jeśli discovery zwraca `connection_hint` z wystarczającą informacją do direct connect, signaling nie jest potrzebny.
+If discovery returns a `connection_hint` with sufficient information for a direct connect, signaling is not needed.
 
-## 4. KIP Tracker Protocol (referencyjna implementacja)
+## 4. KIP Tracker Protocol (Reference Implementation)
 
-Implementacja REGISTRY + SIGNALER w jednym endpoincie. To jest to czym mówi nasz server.
+Implementation of REGISTRY + SIGNALER in a single endpoint. This is what our server speaks.
 
 ### 4.1 Transport
 
-Persistent bidirectional connection. Referencyjna: WebSocket (`wss://`/`ws://`). Ale spec nie wymaga WebSocket — implementacja może użyć gRPC stream, TCP z framing, SSE + POST, etc.
+Persistent bidirectional connection. Reference: WebSocket (`wss://`/`ws://`). But the spec does not require WebSocket — an implementation may use gRPC streams, TCP with framing, SSE + POST, etc.
 
 ### 4.2 Manifest (REGISTRY → PEER)
 
-Po nawiązaniu połączenia transportowego, REGISTRY wysyła **manifest** — zestaw reguł obowiązujących w tej sieci. REGISTRY jest autorytetem — to federacja, nie demokracja. PEER akceptuje reguły albo rozłącza się.
+After establishing the transport connection, the REGISTRY sends a **manifest** — a set of rules governing this network. The REGISTRY is the authority — this is federation, not democracy. The PEER accepts the rules or disconnects.
 
 ```json
 {
@@ -112,7 +112,7 @@ Po nawiązaniu połączenia transportowego, REGISTRY wysyła **manifest** — ze
 }
 ```
 
-PEER odpowiada akceptacją:
+The PEER responds with acceptance:
 
 ```json
 {
@@ -122,60 +122,60 @@ PEER odpowiada akceptacją:
 }
 ```
 
-#### Pola manifestu
+#### Manifest Fields
 
-| Pole | Wartości | Opis |
+| Field | Values | Description |
 |---|---|---|
-| `auth_required` | bool | Czy announce wymaga tokenu auth (KIP-0004) |
-| `announce_mode` | `"per-resource"`, `"per-server"` | Czy peer ogłasza listę resource_ids czy tylko "jestem hostem serwerów X, Y" |
-| `signaling` | `"provided"`, `"none"` | Czy REGISTRY oferuje relay signaling (SIGNALER rola) |
-| `relay` | `"available"`, `"none"` | Czy REGISTRY oferuje chunk relay (RELAY rola) |
-| `push_peers` | bool | Czy REGISTRY proaktywnie informuje o nowych peerach czy czeka na want |
-| `required_extensions` | int[] | Extensiony wymagane do uczestnictwa w sieci |
-| `encryption_required` | bool | Czy szyfrowanie jest obowiązkowe |
+| `auth_required` | bool | Whether announce requires an auth token (KIP-0004) |
+| `announce_mode` | `"per-resource"`, `"per-server"` | Whether peer announces a list of resource_ids or just "I'm a host of servers X, Y" |
+| `signaling` | `"provided"`, `"none"` | Whether REGISTRY offers signaling relay (SIGNALER role) |
+| `relay` | `"available"`, `"none"` | Whether REGISTRY offers chunk relay (RELAY role) |
+| `push_peers` | bool | Whether REGISTRY proactively informs about new peers or waits for want |
+| `required_extensions` | int[] | Extensions required to participate in the network |
+| `encryption_required` | bool | Whether encryption is mandatory |
 
-**`announce_mode`** rozwiązuje problem 50000 plików:
-- `"per-resource"`: peer ogłasza listę resource_ids (jak BT tracker — dobry dla małych bibliotek, sharing)
-- `"per-server"`: peer ogłasza się jako host (np. "jestem runner X z serwerami A, B" — lista plików dostępna przez API lub bezpośrednio od peera)
+**`announce_mode`** solves the 50,000 files problem:
+- `"per-resource"`: peer announces a list of resource_ids (like a BT tracker — good for small libraries, sharing)
+- `"per-server"`: peer announces itself as a host (e.g. "I'm runner X with servers A, B" — file list available via API or directly from the peer)
 
-Różne trackery mogą mieć różne manifesty:
+Different trackers may have different manifests:
 
 | Tracker | Manifest |
 |---|---|
-| Nasz (kippit.net, faza 1) | auth required, per-server, signaling provided, push |
-| Nasz (faza 0) | no auth, per-resource, signaling provided, pull |
-| Publiczny community | no auth, per-resource, no relay, pull |
-| Korporacyjny self-hosted | auth required, encryption required, per-server |
+| Ours (kippit.net, phase 1) | auth required, per-server, signaling provided, push |
+| Ours (phase 0) | no auth, per-resource, signaling provided, pull |
+| Public community | no auth, per-resource, no relay, pull |
+| Corporate self-hosted | auth required, encryption required, per-server |
 
-Operator trackera ustala politykę. RFC definiuje mechanizm manifestu, nie konkretne reguły.
+The tracker operator sets the policy. The RFC defines the manifest mechanism, not the specific rules.
 
-#### Governance model
+#### Governance Model
 
-Manifest MOŻE zawierać pole `governance` definiujące kto ustala reguły:
+The manifest MAY contain a `governance` field defining who sets the rules:
 
-| Governance | Znaczenie |
+| Governance | Meaning |
 |---|---|
-| `"federated"` | REGISTRY narzuca reguły. Peer akceptuje lub odchodzi. **Default.** |
-| `"democratic"` | Swarm negocjuje reguły konsensusem. REGISTRY to bootstrap node, nie autorytet. |
-| `"hybrid"` | REGISTRY proponuje defaults, swarm może override na wybranych polach. |
+| `"federated"` | REGISTRY imposes rules. Peer accepts or leaves. **Default.** |
+| `"democratic"` | The swarm negotiates rules by consensus. REGISTRY is a bootstrap node, not an authority. |
+| `"hybrid"` | REGISTRY proposes defaults, swarm may override on selected fields. |
 
-**Demokracja może zdecydować o wszystkim** — w tym o wymaganiu auth, szyfrowania, czy przejściu na federację. Swarm głosuje "auth required" → wyznacza node który tego pilnuje → ten node de facto jest federatorem. Demokracja może zdecydować o federacji. Federator może oddać głos swarmowi. Governance jest dynamiczny.
+**Democracy can decide on everything** — including requiring auth, encryption, or transitioning to federation. The swarm votes "auth required" → designates a node to enforce it → that node becomes a de facto federator. Democracy can decide to federate. A federator can hand the vote back to the swarm. Governance is dynamic.
 
-**Ograniczenia demokracji w P2P nie dotyczą CZEGO można przegłosować, ale JAK głosować i KTO egzekwuje:**
+**The limitations of democracy in P2P are not about WHAT can be voted on, but HOW to vote and WHO enforces:**
 
-1. **Sybil attack** — kto ma prawo głosu? Jeśli 1 peer = 1 głos, atakujący tworzy 1000 peerów i przegłosowuje. Mechanizm tożsamości (kto jest prawdziwym peerem) wymaga auth — ale auth to reguła o którą dopiero głosujemy. Problem kurczaka i jajka.
+1. **Sybil attack** — who has the right to vote? If 1 peer = 1 vote, an attacker creates 1,000 peers and outvotes everyone. A mechanism of identity (who is a real peer) requires auth — but auth is a rule we're voting on. Chicken-and-egg problem.
 
-2. **Enforcement** — kto wyrzuca peera który ignoruje wynik głosowania? Jeśli nikt — reguły są niewiążące. Jeśli wyznaczony node — ten node jest de facto federatorem. Demokracja w momencie enforcement **konwerguje do federacji**.
+2. **Enforcement** — who kicks out a peer that ignores the vote result? If no one — the rules are non-binding. If a designated node — that node is a de facto federator. Democracy at the moment of enforcement **converges to federation**.
 
-3. **Bootstrap** — na starcie nie ma peerów, nie ma kto głosować. Ktoś musi postawić pierwszy node z jakimiś początkowymi regułami.
+3. **Bootstrap** — at startup there are no peers, no one to vote. Someone must stand up the first node with some initial rules.
 
-W praktyce demokracja P2P ma dwie formy enforcement:
-- **Mutual enforcement** — każdy peer wymusza reguły na swoich połączeniach (np. "nie gadam z niezaszyfrowanymi peerami"). Brak centralnego egzekutora. Działa dla szyfrowania, bandwidth, chunk verification.
-- **Delegated enforcement** — swarm wyznacza node do pilnowania reguł. Ten node staje się federatorem z mandatem demokratycznym. Działa dla auth, moderation, commerce.
+In practice, P2P democracy has two forms of enforcement:
+- **Mutual enforcement** — every peer enforces rules on its own connections (e.g. "I don't talk to unencrypted peers"). No central enforcer. Works for encryption, bandwidth, chunk verification.
+- **Delegated enforcement** — the swarm designates a node to enforce rules. That node becomes a federator with a democratic mandate. Works for auth, moderation, commerce.
 
-RFC definiuje mechanizm governance — wybór modelu to decyzja operatora/społeczności. Governance może się zmieniać w czasie życia sieci.
+The RFC defines the governance mechanism — the choice of model is the operator's/community's decision. Governance can change over the network's lifetime.
 
-### 4.3 Discovery messages
+### 4.3 Discovery Messages
 
 #### announce (PEER → REGISTRY)
 
@@ -192,11 +192,11 @@ RFC definiuje mechanizm governance — wybór modelu to decyzja operatora/społe
 }
 ```
 
-- **resources:** lista seedowanych resource'ów.
-- **bitfield:** base64-encoded. Opcjonalny — brak = 100% (pełny seed).
-- **peer_id:** z handshake, nie powtarzany.
+- **resources:** list of seeded resources.
+- **bitfield:** base64-encoded. Optional — absence = 100% (full seed).
+- **peer_id:** from handshake, not repeated.
 
-PEER POWINIEN wysłać announce po handshake. PEER MOŻE wysyłać ponownie z aktualizacjami.
+A PEER SHOULD send announce after handshake. A PEER MAY re-send with updates.
 
 #### want (PEER → REGISTRY)
 
@@ -207,7 +207,7 @@ PEER POWINIEN wysłać announce po handshake. PEER MOŻE wysyłać ponownie z ak
 }
 ```
 
-REGISTRY odpowiada `peers`.
+The REGISTRY responds with `peers`.
 
 #### peers (REGISTRY → PEER)
 
@@ -224,10 +224,10 @@ REGISTRY odpowiada `peers`.
 }
 ```
 
-- **connection_hint:** jak połączyć się z peerem. Format zależy od transportu:
-  - `"webrtc:signal-required"` — wymaga signaling przez SIGNALER
+- **connection_hint:** how to connect to the peer. Format depends on transport:
+  - `"webrtc:signal-required"` — requires signaling through SIGNALER
   - `"http:192.168.1.50:9000"` — direct HTTP (LAN)
-  - `"tcp:1.2.3.4:6881"` — direct TCP (publiczny IP)
+  - `"tcp:1.2.3.4:6881"` — direct TCP (public IP)
 
 #### leave (PEER → REGISTRY)
 
@@ -238,9 +238,9 @@ REGISTRY odpowiada `peers`.
 }
 ```
 
-Opcjonalny — disconnect też czyści peera.
+Optional — disconnect also cleans up the peer.
 
-### 4.4 Signaling messages
+### 4.4 Signaling Messages
 
 #### signal (PEER → SIGNALER → PEER)
 
@@ -253,13 +253,13 @@ Opcjonalny — disconnect też czyści peera.
 ```
 
 SIGNALER:
-1. Dopisuje `"from": "<sender_peer_id>"` do message
-2. Przekazuje do docelowego PEERa bez inspekcji payloadu
-3. Jeśli docelowy PEER nie istnieje → error `PEER_NOT_FOUND`
+1. Appends `"from": "<sender_peer_id>"` to the message
+2. Forwards to the target PEER without inspecting the payload
+3. If the target PEER does not exist → error `PEER_NOT_FOUND`
 
-Payload jest **opaque** — spec nie wie co jest w środku. Dla WebRTC to SDP/ICE. Dla innego transportu to cokolwiek connection setup potrzebuje.
+The payload is **opaque** — the spec does not know what's inside. For WebRTC it's SDP/ICE. For another transport it's whatever the connection setup needs.
 
-### 4.5 Error messages
+### 4.5 Error Messages
 
 ```json
 {
@@ -269,17 +269,17 @@ Payload jest **opaque** — spec nie wie co jest w środku. Dla WebRTC to SDP/IC
 }
 ```
 
-| Code | Opis |
+| Code | Description |
 |---|---|
-| PEER_NOT_FOUND | Docelowy peer signaling nie istnieje |
-| INVALID_MESSAGE | Malformed message lub brak wymaganych pól |
-| RATE_LIMITED | Za dużo wiadomości |
-| AUTH_REQUIRED | REGISTRY wymaga auth, peer nie dostarczył |
-| UNSUPPORTED_VERSION | Wersja protokołu nieobsługiwana |
+| PEER_NOT_FOUND | Target signaling peer does not exist |
+| INVALID_MESSAGE | Malformed message or missing required fields |
+| RATE_LIMITED | Too many messages |
+| AUTH_REQUIRED | REGISTRY requires auth, peer did not provide it |
+| UNSUPPORTED_VERSION | Protocol version not supported |
 
-### 4.6 State management
+### 4.6 State Management
 
-REGISTRY trzyma state **wyłącznie w pamięci**. Restart = utrata stanu. PEERy re-announce'ują po reconnect.
+The REGISTRY holds state **exclusively in memory**. Restart = state lost. PEERs re-announce after reconnect.
 
 ```
 State:
@@ -294,33 +294,33 @@ PeerInfo:
   connection_hint: string
 ```
 
-**Eviction:** PEER bez aktywności przez 90 sekund = usunięty.
+**Eviction:** PEER with no activity for 90 seconds = removed.
 
-**KeepAlive:** REGISTRY wysyła ping co 30 sekund. Brak pong = disconnect.
+**KeepAlive:** REGISTRY sends ping every 30 seconds. No pong = disconnect.
 
 ## 5. mDNS Discovery (LAN)
 
-Implementacja discovery interface (sekcja 2) dla sieci lokalnej. Nie wymaga REGISTRY — PEERy ogłaszają się bezpośrednio.
+Discovery interface implementation (section 2) for local networks. Does not require REGISTRY — PEERs announce themselves directly.
 
-### 5.1 Service announcement
+### 5.1 Service Announcement
 
 ```
 Service Type:  _kippit._tcp
 Instance Name: <peer_id_hex_first_8_chars>
-Port:          zdefiniowany w config (default 9000)
+Port:          defined in config (default 9000)
 TXT Records:
   v=1                          (protocol version)
   resources=<res_id1>,<res_id2> (comma-separated, max 10)
 ```
 
-### 5.2 Discovery flow
+### 5.2 Discovery Flow
 
-1. PEER wysyła mDNS query: `_kippit._tcp.local.`
-2. LAN PEERy odpowiadają SRV + TXT records
-3. Discoverer sprawdza `resources` w TXT
-4. Jeśli match: direct HTTP connection (brak signaling, brak wire protocol overhead)
+1. PEER sends mDNS query: `_kippit._tcp.local.`
+2. LAN PEERs respond with SRV + TXT records
+3. Discoverer checks `resources` in TXT
+4. If match: direct HTTP connection (no signaling, no wire protocol overhead)
 
-### 5.3 LAN chunk endpoint
+### 5.3 LAN Chunk Endpoint
 
 ```
 GET /chunks/{resource_id}/{chunk_index}
@@ -328,23 +328,23 @@ GET /chunks/{resource_id}/{chunk_index}
 → 404 Not Found
 ```
 
-Shortcut — nie wymaga wire protocol handshake (KIP-0001). Prostszy, mniej overhead dla LAN.
+Shortcut — does not require wire protocol handshake (KIP-0001). Simpler, less overhead for LAN.
 
-## 6. Combined flow (wszystkie warstwy)
+## 6. Combined Flow (All Layers)
 
 ```
-PEER A chce resource R:
+PEER A wants resource R:
 
-Warstwa 1 (DISCOVERY):
-  1. mDNS cache → peer B w LAN? → TAK → skip to warstwa 2 direct
+Layer 1 (DISCOVERY):
+  1. mDNS cache → peer B on LAN? → YES → skip to layer 2 direct
   2. REGISTRY: want {resource_id: R}
      REGISTRY: peers {R, [{peer_id: B, hint: "webrtc:signal-required"}]}
 
-Warstwa 2 (CONNECTION):
-  Jeśli LAN:
+Layer 2 (CONNECTION):
+  If LAN:
     3a. HTTP GET http://192.168.1.50:9000/chunks/R/0 → done (shortcut)
 
-  Jeśli remote (WebRTC):
+  If remote (WebRTC):
     3b. SIGNALER: signal {to: B, payload: {type: "offer", sdp: ...}}
         SIGNALER → B: signal {from: A, payload: {type: "offer", sdp: ...}}
         B → SIGNALER: signal {to: A, payload: {type: "answer", sdp: ...}}
@@ -352,40 +352,40 @@ Warstwa 2 (CONNECTION):
         (+ ICE candidates)
     4. WebRTC data channel established → Transport interface ready
 
-Warstwa 3 (EXCHANGE):
+Layer 3 (EXCHANGE):
   5. KIP-0001 handshake → Bitfield → Request → Piece → ...
 
-Warstwa 4 (SEMANTICS):
+Layer 4 (SEMANTICS):
   6. Extensions: auth verification, decryption, sequential playback, ...
 ```
 
-## 7. Extensions na discovery protocol
+## 7. Extensions on Discovery Protocol
 
-KIP-0003 definiuje extension negotiation dla warstwy 3 (PEER ↔ PEER). Discovery protocol ma **osobny** mechanizm: **capability advertisement** w handshake (sekcja 4.2).
+KIP-0003 defines extension negotiation for layer 3 (PEER ↔ PEER). The discovery protocol has a **separate** mechanism: **capability advertisement** in handshake (section 4.2).
 
-Przykłady discovery extensions:
+Examples of discovery extensions:
 
-| Extension | Co robi | Handshake |
+| Extension | What It Does | Handshake |
 |---|---|---|
-| KIP-0004 (Auth) | REGISTRY wymaga JWT w announce | `auth_required: true` |
-| Relay | REGISTRY oferuje chunk relay | `relay_available: true` |
-| Push notifications | REGISTRY informuje o nowych peerach | `push_peers: true` |
-| Federation | REGISTRY synchronizuje z innymi REGISTRY | `federation: true` |
+| KIP-0004 (Auth) | REGISTRY requires JWT in announce | `auth_required: true` |
+| Relay | REGISTRY offers chunk relay | `relay_available: true` |
+| Push notifications | REGISTRY informs about new peers | `push_peers: true` |
+| Federation | REGISTRY syncs with other REGISTRYs | `federation: true` |
 
-Discovery extensions ≠ wire protocol extensions. To osobne namespace'y, osobna negocjacja.
+Discovery extensions ≠ wire protocol extensions. These are separate namespaces, separate negotiation.
 
-## 8. Poza scope KIP-0002
+## 8. Out of Scope for KIP-0002
 
-- **Wire protocol** → KIP-0001 (warstwa 3)
-- **Extension negotiation peer ↔ peer** → KIP-0003 (warstwa 3)
+- **Wire protocol** → KIP-0001 (layer 3)
+- **Extension negotiation peer ↔ peer** → KIP-0003 (layer 3)
 - **Auth details** (JWT format, verification) → KIP-0004
-- **Chunk relay implementation** → osobny spec lub część KIP-0004/tracker docs
-- **Transport implementations** (WebRTC, TCP, QUIC) → poza spec, pluggable
+- **Chunk relay implementation** → separate spec or part of KIP-0004/tracker docs
+- **Transport implementations** (WebRTC, TCP, QUIC) → outside spec, pluggable
 
-## Pytania otwarte
+## Open Questions
 
-1. **`want` batch:** czy wspierać `want` z wieloma resource_ids?
-2. **Push vs pull:** czy REGISTRY proaktywnie informuje o nowych peerach (push) czy tylko na `want` (pull)?
-3. **Resource limit:** max resources per peer w announce? Peer z 10000 plików = duży message.
-4. **Discovery + signaling razem czy osobno?** Obecny draft: razem w jednym connection (prostsze). Alternatywa: osobne endpointy (czystszy separation of concerns). Nasza implementacja i tak ma jedno połączenie.
-5. **connection_hint format:** formalizować czy free-form string?
+1. **`want` batch:** should `want` with multiple resource_ids be supported?
+2. **Push vs pull:** should REGISTRY proactively inform about new peers (push) or only on `want` (pull)?
+3. **Resource limit:** max resources per peer in announce? A peer with 10,000 files = large message.
+4. **Discovery + signaling together or separate?** Current draft: together in one connection (simpler). Alternative: separate endpoints (cleaner separation of concerns). Our implementation has a single connection anyway.
+5. **connection_hint format:** formalize or keep as a free-form string?

@@ -6,17 +6,17 @@
 
 ## Abstract
 
-KIP-0003 definiuje extension negotiation na **dwóch poziomach**:
+KIP-0003 defines extension negotiation at **two levels**:
 
-1. **Warstwa 3 (PEER ↔ PEER):** Negocjacja w wire protocol handshake. Peer deklaruje listę extensionów, drugi peer odpowiada. Komunikacja rozszerzona tylko dla extensionów zaakceptowanych przez obu.
+1. **Layer 3 (PEER ↔ PEER):** Negotiation in the wire protocol handshake. A peer declares a list of extensions, the other peer responds. Communication is extended only for extensions accepted by both.
 
-2. **Warstwa 1 (PEER ↔ REGISTRY):** Capability advertisement w discovery protocol handshake. REGISTRY ogłasza wymagania i offerings. PEER decyduje czy chce gadać.
+2. **Layer 1 (PEER ↔ REGISTRY):** Capability advertisement in the discovery protocol handshake. The REGISTRY announces requirements and offerings. The PEER decides whether to participate.
 
-Te dwa mechanizmy są **niezależne** — inne połączenie, inny handshake, inne capabilities.
+These two mechanisms are **independent** — different connection, different handshake, different capabilities.
 
-## 1. Handshake extension field
+## 1. Handshake Extension Field
 
-W Handshake message (KIP-0001, type 0x00) pole `extensions` zawiera listę extensionów:
+In the Handshake message (KIP-0001, type 0x00) the `extensions` field contains a list of extensions:
 
 ```
 extensions field:
@@ -31,34 +31,34 @@ extension entry:
 └──────────────┴───────────────┴───────────────────┘
 ```
 
-- **ext_count:** uint16, liczba extensionów w liście.
-- **ext_id:** uint16, numer KIP extensionu (np. 4 = KIP-0004 Auth, 5 = KIP-0005 Encryption).
-- **version:** uint16, wersja extensionu obsługiwana przez peera.
-- **data_len:** uint16, rozmiar opcjonalnych danych konfiguracyjnych extensionu.
-- **data:** opcjonalne bajty specyficzne per extension (np. lista obsługiwanych cipher suites w KIP-0005).
+- **ext_count:** uint16, number of extensions in the list.
+- **ext_id:** uint16, KIP extension number (e.g. 4 = KIP-0004 Auth, 5 = KIP-0005 Encryption).
+- **version:** uint16, extension version supported by the peer.
+- **data_len:** uint16, size of optional extension configuration data.
+- **data:** optional bytes specific to each extension (e.g. list of supported cipher suites in KIP-0005).
 
-## 2. Negocjacja
+## 2. Negotiation
 
-### 2.1 Algorytm
+### 2.1 Algorithm
 
-1. Peer A wysyła Handshake z `extensions: [{ext_id: 4, v: 1}, {ext_id: 5, v: 1}, {ext_id: 6, v: 1}]`
-2. Peer B wysyła Handshake z `extensions: [{ext_id: 4, v: 1}, {ext_id: 6, v: 2}]`
-3. Obie strony obliczają **intersection**:
-   - KIP-0004 v1: oba obsługują → **aktywny**
-   - KIP-0005 v1: tylko A → **nieaktywny** (B nie umie)
-   - KIP-0006: A ma v1, B ma v2 → **aktywny z niższą wersją (v1)**, o ile extension definiuje backward compat. Jeśli nie — nieaktywny.
+1. Peer A sends Handshake with `extensions: [{ext_id: 4, v: 1}, {ext_id: 5, v: 1}, {ext_id: 6, v: 1}]`
+2. Peer B sends Handshake with `extensions: [{ext_id: 4, v: 1}, {ext_id: 6, v: 2}]`
+3. Both sides compute the **intersection**:
+   - KIP-0004 v1: both support → **active**
+   - KIP-0005 v1: only A → **inactive** (B doesn't support it)
+   - KIP-0006: A has v1, B has v2 → **active with the lower version (v1)**, provided the extension defines backward compatibility. If not — inactive.
 
-### 2.2 Reguły
+### 2.2 Rules
 
-1. Extension jest aktywny dla połączenia **tylko jeśli oba peery go zadeklarowały**.
-2. Wersjonowanie: jeśli wersje się różnią, obie strony używają **min(version_A, version_B)**. Extension MOŻE definiować, że pewne wersje nie są backward-compatible (wtedy traktowane jako niezgodne).
-3. Kolejność w liście nie ma znaczenia.
-4. Nieznany ext_id = ignorowany (graceful degradation). Peer NIE rozłącza się z powodu nieznanego extensionu.
-5. Brak extensionów (`ext_count: 0`) jest valid = core-only connection.
+1. An extension is active for a connection **only if both peers declared it**.
+2. Versioning: if versions differ, both sides use **min(version_A, version_B)**. An extension MAY define that certain versions are not backward-compatible (then treated as incompatible).
+3. Order in the list does not matter.
+4. Unknown ext_id = ignored (graceful degradation). A peer MUST NOT disconnect because of an unknown extension.
+5. No extensions (`ext_count: 0`) is valid = core-only connection.
 
-## 3. Extension messages
+## 3. Extension Messages
 
-Extensiony komunikują się przez message types **0x80-0xFF** (128-255) w KIP-0001.
+Extensions communicate via message types **0x80-0xFF** (128-255) in KIP-0001.
 
 Mapping ext_id → message types:
 
@@ -70,10 +70,10 @@ Extension message:
 └──────────────┴───────────┴──────────────────┘
 ```
 
-- **type 0x80:** Generic extension message. Payload zaczyna się od `ext_id (2B)` — router do właściwego extensionu.
-- **type 0x81-0xFF:** Mogą być zarezerwowane przez konkretne extensiony (jeśli extension potrzebuje dedykowanego message type dla performance).
+- **type 0x80:** Generic extension message. Payload starts with `ext_id (2B)` — router to the appropriate extension.
+- **type 0x81-0xFF:** May be reserved by specific extensions (if an extension needs a dedicated message type for performance).
 
-### 3.1 Generic extension message (0x80)
+### 3.1 Generic Extension Message (0x80)
 
 ```
 ┌──────────┬──────────┬───────────┬──────────────────┐
@@ -82,23 +82,23 @@ Extension message:
 └──────────┴──────────┴───────────┴──────────────────┘
 ```
 
-Peer MUSI ignorować extension messages dla ext_id który nie jest aktywny dla tego połączenia.
+A peer MUST ignore extension messages for an ext_id that is not active for this connection.
 
-## 4. Reserved extension IDs
+## 4. Reserved Extension IDs
 
-| ext_id | KIP | Nazwa | Opis |
+| ext_id | KIP | Name | Description |
 |---|---|---|---|
-| 0x0001-0x0003 | - | Reserved | Core protocol (nie extensiony) |
+| 0x0001-0x0003 | - | Reserved | Core protocol (not extensions) |
 | 0x0004 | KIP-0004 | Auth | JWT authentication |
 | 0x0005 | KIP-0005 | Encryption | Per-chunk encryption (AES-128-CBC, AES-256-GCM) |
 | 0x0006 | KIP-0006 | Streaming | Sequential priority, HLS manifest hints |
 | 0x0007 | KIP-0007 | Sync | Operation log, vector clocks |
 | 0x0008 | KIP-0008 | Messaging | Real-time small data |
 | 0x0009 | KIP-0009 | BT Bridge | BitTorrent wire protocol compatibility |
-| 0x000A-0x0063 | - | Reserved | Przyszłe oficjalne extensiony |
-| 0x0064-0xFFFF | - | Community | Community-defined extensiony |
+| 0x000A-0x0063 | - | Reserved | Future official extensions |
+| 0x0064-0xFFFF | - | Community | Community-defined extensions |
 
-## 5. Extension lifecycle
+## 5. Extension Lifecycle
 
 ```
          Handshake
@@ -127,15 +127,15 @@ Peer MUSI ignorować extension messages dla ext_id który nie jest aktywny dla t
      └───────────────┘
 ```
 
-Extension MOŻE wymienić dodatkowe wiadomości po negocjacji ale przed normalną operacją (np. KIP-0005 musi wymienić key parameters zanim chunki polecą zaszyfrowane).
+An extension MAY exchange additional messages after negotiation but before normal operation (e.g. KIP-0005 must exchange key parameters before chunks are sent encrypted).
 
-## 6. Przykład: pełna sesja z extensionami
+## 6. Example: Full Session with Extensions
 
 ```
-Peer A (runner, seeduje film):
+Peer A (runner, seeding a movie):
   extensions: [KIP-0004 v1, KIP-0005 v1, KIP-0006 v1]
 
-Peer B (web app, chce oglądać):
+Peer B (web app, wants to watch):
   extensions: [KIP-0004 v1, KIP-0005 v1, KIP-0006 v1]
 
 Negotiated: KIP-0004, KIP-0005, KIP-0006 — all active.
@@ -152,10 +152,10 @@ Flow:
 ```
 
 ```
-Peer C (CLI tool, faza 0):
+Peer C (CLI tool, phase 0):
   extensions: []
 
-Peer D (CLI tool, faza 0):
+Peer D (CLI tool, phase 0):
   extensions: []
 
 Negotiated: nothing. Core-only.
@@ -166,38 +166,38 @@ Flow:
 3. Request/Piece — raw bytes, no encryption, no auth
 ```
 
-## 7. Discovery manifest (warstwa 1)
+## 7. Discovery Manifest (Layer 1)
 
-Osobny mechanizm od wire protocol extension negotiation (sekcje 1-6). Opisany w KIP-0002 sekcja 4.2.
+A separate mechanism from wire protocol extension negotiation (sections 1-6). Described in KIP-0002 section 4.2.
 
-### 7.1 Różnice vs wire protocol negotiation
+### 7.1 Differences vs Wire Protocol Negotiation
 
-| Aspekt | Wire (PEER ↔ PEER) | Discovery (PEER ↔ REGISTRY) |
+| Aspect | Wire (PEER ↔ PEER) | Discovery (PEER ↔ REGISTRY) |
 |---|---|---|
-| Handshake | Binarny (KIP-0001 type 0x00) | JSON `hello` message (KIP-0002) |
-| Negocjacja | Intersection (oba muszą umieć) | Manifest (REGISTRY narzuca reguły, PEER akceptuje lub odchodzi) |
+| Handshake | Binary (KIP-0001 type 0x00) | JSON `hello` message (KIP-0002) |
+| Negotiation | Intersection (both must support it) | Manifest (REGISTRY imposes rules, PEER accepts or leaves) |
 | Format | ext_id + version + data | capabilities object |
-| Symetria | Symetryczny (oba peery równe) | Asymetryczny (REGISTRY ma wymagania, PEER je spełnia lub nie) |
-| Przykład | KIP-0005 encryption: oba peery negocjują cipher | Auth required: REGISTRY wymaga JWT, PEER dostarcza lub odchodzi |
+| Symmetry | Symmetric (both peers are equal) | Asymmetric (REGISTRY has requirements, PEER meets them or doesn't) |
+| Example | KIP-0005 encryption: both peers negotiate cipher | Auth required: REGISTRY requires JWT, PEER provides or leaves |
 
-### 7.2 Shared extension IDs
+### 7.2 Shared Extension IDs
 
-Extension IDs (sekcja 4) są **współdzielone** między warstwami. KIP-0004 (Auth) ma ten sam ext_id (0x0004) niezależnie czy jest negocjowany peer-to-peer czy wymagany przez REGISTRY. Ale zachowanie extensionu może się różnić per warstwa:
+Extension IDs (section 4) are **shared** across layers. KIP-0004 (Auth) has the same ext_id (0x0004) regardless of whether it's negotiated peer-to-peer or required by REGISTRY. But extension behavior may differ per layer:
 
-- **KIP-0004 na wire (PEER ↔ PEER):** JWT challenge-response po handshake
-- **KIP-0004 na discovery (PEER ↔ REGISTRY):** JWT dołączany do announce message
+- **KIP-0004 on wire (PEER ↔ PEER):** JWT challenge-response after handshake
+- **KIP-0004 on discovery (PEER ↔ REGISTRY):** JWT attached to announce message
 
-Extension spec (np. KIP-0004) MUSI definiować zachowanie na obu warstwach jeśli dotyczy obu.
+An extension spec (e.g. KIP-0004) MUST define behavior on both layers if it applies to both.
 
-## 8. Poza scope KIP-0003
+## 8. Out of Scope for KIP-0003
 
-- Szczegóły poszczególnych extensionów (KIP-0004, KIP-0005, ...) — każdy ma własny spec.
-- Discovery extensionów (jakie extensiony istnieją) — docs/website, nie protocol.
-- Extension dependencies (np. KIP-0006 wymaga KIP-0005) — definiowane w spec extensionu, nie w core negotiation.
+- Details of individual extensions (KIP-0004, KIP-0005, ...) — each has its own spec.
+- Discovery of extensions (which extensions exist) — docs/website, not protocol.
+- Extension dependencies (e.g. KIP-0006 requires KIP-0005) — defined in the extension's spec, not in core negotiation.
 
-## Pytania otwarte
+## Open Questions
 
-1. Czy wire extension negotiation powinna być osobnym message type po Handshake, czy częścią Handshake? Obecnie: część Handshake (prostsze).
-2. Czy extension powinna móc odrzucić połączenie? (Np. KIP-0004 wymaga auth, peer bez auth = disconnect.) Obecnie: extension decyduje w OnActivate(), może wysłać Error.
-3. Czy message type 0x80 (generic) jest wystarczający, czy extensiony powinny mieć dedykowane message types?
-4. Czy discovery manifest powinien mieć ten sam binarny format co wire extensions, czy JSON jest OK? Obecna decyzja: JSON (bo discovery protocol jest JSON-based).
+1. Should wire extension negotiation be a separate message type after Handshake, or part of the Handshake? Current: part of Handshake (simpler).
+2. Should an extension be able to reject a connection? (E.g. KIP-0004 requires auth, peer without auth = disconnect.) Current: the extension decides in OnActivate(), may send Error.
+3. Is message type 0x80 (generic) sufficient, or should extensions have dedicated message types?
+4. Should the discovery manifest use the same binary format as wire extensions, or is JSON fine? Current decision: JSON (because the discovery protocol is JSON-based).

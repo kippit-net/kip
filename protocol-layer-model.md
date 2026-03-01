@@ -1,25 +1,25 @@
-# Pomysł: Model warstwowy protokołu KIP
+# Idea: Protocol Layer Model
 
-**Status:** Aktywny — obecny kierunek architektoniczny
+**Status:** Active — current architectural direction
 
-## Kontekst
+## Context
 
-Próba opisania protokołu jako jednego monolitu (KIP-0001 + KIP-0002 + KIP-0003) prowadzi do pomieszania warstw. Tracker jest opisany jako "WebSocket JSON API" zamiast jako rola w protokole. Extension negotiation działa tylko między peerami, nie między peerem a trackerem. Nie wiadomo gdzie żyje WebRTC, HLS, BT — bo model nie rozróżnia warstw.
+Attempting to describe the protocol as a single monolith (KIP-0001 + KIP-0002 + KIP-0003) leads to layer confusion. The tracker is described as a "WebSocket JSON API" instead of as a role in the protocol. Extension negotiation only works between peers, not between a peer and a tracker. It's unclear where WebRTC, HLS, BT live — because the model doesn't distinguish layers.
 
-## Idea: KIP to stack protokołów, nie jeden protokół
+## Idea: KIP is a protocol stack, not a single protocol
 
-Jak TCP/IP nie jest jednym protokołem, KIP definiuje warstwy i interfejsy między nimi.
+Like TCP/IP is not a single protocol, KIP defines layers and interfaces between them.
 
-### Warstwy
+### Layers
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  5. APPLICATION                                                 │
-│     "Oglądam film" / "Syncuję pliki" / "Udostępniam mamie"     │
-│     CLI, Web App, Mobile — NIE w spec protokołu                 │
+│     "I'm watching a movie" / "Syncing files" / "Sharing w/ mom"│
+│     CLI, Web App, Mobile — NOT in protocol spec                 │
 ├─────────────────────────────────────────────────────────────────┤
 │  4. SEMANTICS                                                   │
-│     Co dane ZNACZĄ. Extensiony żyją tutaj.                      │
+│     What the data MEANS. Extensions live here.                  │
 │                                                                 │
 │     ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │
 │     │Streaming │ │  Sync    │ │Messaging │ │   Auth   │ ...   │
@@ -30,23 +30,23 @@ Jak TCP/IP nie jest jednym protokołem, KIP definiuje warstwy i interfejsy międ
 ├─────────────────────────────────────────────────────────────────┤
 │  3. EXCHANGE                                                    │
 │     Handshake, bitfield, request, piece, cancel.                │
-│     Transport-agnostic. Binarny framing.                        │
+│     Transport-agnostic. Binary framing.                         │
 │                                                                 │
-│     Implementacje:                                              │
+│     Implementations:                                            │
 │     ┌────────────────┐  ┌─────────────────┐                    │
 │     │ KIP wire       │  │ BT wire (bridge)│                    │
 │     └────────────────┘  └─────────────────┘                    │
 ├─────────────────────────────────────────────────────────────────┤
 │  2. CONNECTION                                                  │
-│     Jak nawiązuję kanał z peerem. NAT traversal tu żyje.       │
+│     How I establish a channel with a peer. NAT traversal here.  │
 │                                                                 │
 │     ┌────────┐ ┌──────┐ ┌──────┐ ┌──────────┐ ┌────────────┐  │
-│     │WebRTC  │ │ TCP  │ │ HTTP │ │ In-memory│ │ QUIC/inne  │  │
-│     │data ch.│ │      │ │ LAN  │ │ (testy)  │ │ (przyszłe) │  │
+│     │WebRTC  │ │ TCP  │ │ HTTP │ │ In-memory│ │ QUIC/other │  │
+│     │data ch.│ │      │ │ LAN  │ │ (tests)  │ │ (future)   │  │
 │     └────────┘ └──────┘ └──────┘ └──────────┘ └────────────┘  │
 ├─────────────────────────────────────────────────────────────────┤
 │  1. DISCOVERY                                                   │
-│     Gdzie są peery? Kto ma to czego szukam?                    │
+│     Where are the peers? Who has what I'm looking for?          │
 │                                                                 │
 │     ┌──────────┐ ┌──────────┐ ┌──────┐ ┌──────┐ ┌───────────┐ │
 │     │KIP      │ │BT        │ │ mDNS │ │ DHT  │ │ static    │ │
@@ -55,124 +55,124 @@ Jak TCP/IP nie jest jednym protokołem, KIP definiuje warstwy i interfejsy międ
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-Każda warstwa ma wiele implementacji. Protokół definiuje interfejsy między warstwami.
+Each layer has multiple implementations. The protocol defines interfaces between layers.
 
-### Role w protokole
+### Protocol Roles
 
-Node w sieci pełni role. Rola to zestaw capability + protokół którym mówi. Rola to nie binarka.
+A node in the network fulfills roles. A role is a set of capabilities + the protocol it speaks. A role is not a binary.
 
 ```
-PEER        Ma dane, chce dane. Mówi wire protocol (warstwa 3).
-REGISTRY    Wie kto ma co. Mówi discovery protocol (warstwa 1).
-SIGNALER    Przekazuje SDP/ICE. Mówi signaling protocol (warstwa 2).
-RELAY       Przekazuje dane gdy P2P niemożliwy. Mówi wire protocol (warstwa 3).
+PEER        Has data, wants data. Speaks wire protocol (layer 3).
+REGISTRY    Knows who has what. Speaks discovery protocol (layer 1).
+SIGNALER    Relays SDP/ICE. Speaks signaling protocol (layer 2).
+RELAY       Forwards data when P2P is impossible. Speaks wire protocol (layer 3).
 ```
 
-Każdy node może pełnić dowolną kombinację ról:
+Any node can fulfill any combination of roles:
 
-| Binarka | Role | Opis |
+| Binary | Roles | Description |
 |---|---|---|
-| Runner (nasz, Go) | PEER | Seeduje/pobiera chunki, mówi wire + discovery client |
-| Server (nasz, Node.js) | REGISTRY + SIGNALER + RELAY | Swarm state, SDP relay, chunk relay, API |
-| Fat node (czyjaś impl) | PEER + REGISTRY | Peer który jest jednocześnie trackerem |
-| BT tracker adapter | REGISTRY | Tłumaczy KIP discovery ↔ BT tracker HTTP |
-| Przeglądarka | PEER | WebRTC peer, klient discovery |
-| CLI tool | PEER | Testowy peer, in-memory lub TCP |
+| Runner (ours, Go) | PEER | Seeds/downloads chunks, speaks wire + discovery client |
+| Server (ours, Node.js) | REGISTRY + SIGNALER + RELAY | Swarm state, SDP relay, chunk relay, API |
+| Fat node (someone's impl) | PEER + REGISTRY | Peer that is also a tracker |
+| BT tracker adapter | REGISTRY | Translates KIP discovery ↔ BT tracker HTTP |
+| Browser | PEER | WebRTC peer, discovery client |
+| CLI tool | PEER | Test peer, in-memory or TCP |
 
-### Nasza implementacja: 2 binarki
+### Our Implementation: 2 Binaries
 
 ```
 runner (Go)                          server (Node.js)
 ┌──────────────────────┐            ┌──────────────────────┐
 │ PEER                 │            │ REGISTRY             │
-│  - seeduje chunki    │◄──────────►│  - swarm state       │
-│  - pobiera chunki    │  discovery │  - peer matching     │
+│  - seeds chunks      │◄──────────►│  - swarm state       │
+│  - downloads chunks  │  discovery │  - peer matching     │
 │  - wire protocol     │  protocol  │                      │
 │                      │            │ SIGNALER             │
 │ (extensions:)        │◄──────────►│  - SDP/ICE relay     │
 │  - streaming (HLS)   │  signaling │                      │
-│  - encryption (AES)  │  protocol  │ RELAY (opcjonalnie)  │
+│  - encryption (AES)  │  protocol  │ RELAY (optional)     │
 │  - auth (JWT)        │            │  - chunk forwarding  │
 │  - sync              │            │                      │
-│  - bt-bridge         │            │ API (poza protokołem)│
+│  - bt-bridge         │            │ API (outside proto)  │
 │                      │            │  - REST: auth, lib   │
 └──────────────────────┘            │  - DB: PostgreSQL    │
                                     └──────────────────────┘
 ```
 
-Ale spec nie wie o Go ani Node.js. Spec mówi jak PEER gada z REGISTRY i jak PEER gada z PEER.
+But the spec doesn't know about Go or Node.js. The spec defines how PEER talks to REGISTRY and how PEER talks to PEER.
 
-### Interfejsy do zdefiniowania w spec
+### Interfaces to Define in Spec
 
-| Interfejs | Kto ↔ Kto | KIP |
+| Interface | Who ↔ Who | KIP |
 |---|---|---|
-| Wire protocol | PEER ↔ PEER | KIP-0001 (istnieje, draft) |
-| Discovery protocol | PEER ↔ REGISTRY | KIP-0002 (do przepisania) |
-| Signaling protocol | PEER ↔ SIGNALER | Część KIP-0002 lub osobny KIP |
-| Extension negotiation | PEER ↔ PEER, PEER ↔ REGISTRY | KIP-0003 (do rozszerzenia) |
-| Transport interface | Wewnętrzny | Nie spec — interfejs implementacyjny |
+| Wire protocol | PEER ↔ PEER | KIP-0001 (exists, draft) |
+| Discovery protocol | PEER ↔ REGISTRY | KIP-0002 (to be rewritten) |
+| Signaling protocol | PEER ↔ SIGNALER | Part of KIP-0002 or separate KIP |
+| Extension negotiation | PEER ↔ PEER, PEER ↔ REGISTRY | KIP-0003 (to be extended) |
+| Transport interface | Internal | Not a spec — implementation interface |
 
-RELAY nie potrzebuje osobnego spec — jest transparent proxy na wire protocol.
+RELAY doesn't need a separate spec — it's a transparent proxy on the wire protocol.
 
-### Jak istniejące standardy wchodzą w model
+### How Existing Standards Fit the Model
 
 ```
-Standard         Warstwa    Rola w systemie
+Standard         Layer      Role in System
 ─────────        ───────    ───────────────
 WebRTC           2          Transport (data channel) + signaling (ICE/STUN)
 TCP              2          Transport (BT compat, LAN)
-HTTP             2          Transport (LAN chunks) + API (poza protokołem)
-HLS/m3u8         4          Semantics — streaming extension generuje manifest
-JWT              4          Semantics — auth extension weryfikuje tokeny
-AES              4          Semantics — encryption extension szyfruje chunki
-BT wire          3          Exchange — bridge extension tłumaczy ↔ KIP wire
-BT tracker       1          Discovery — bridge tłumaczy ↔ KIP discovery
+HTTP             2          Transport (LAN chunks) + API (outside protocol)
+HLS/m3u8         4          Semantics — streaming extension generates manifest
+JWT              4          Semantics — auth extension verifies tokens
+AES              4          Semantics — encryption extension encrypts chunks
+BT wire          3          Exchange — bridge extension translates ↔ KIP wire
+BT tracker       1          Discovery — bridge translates ↔ KIP discovery
 mDNS             1          Discovery — LAN, zero-config
 STUN/TURN        2          Connection — NAT traversal
 ```
 
-Żaden z nich nie jest "konkurencją" — działają na różnych warstwach.
+None of them are "competitors" — they operate at different layers.
 
-### Scenariusze end-to-end
+### End-to-End Scenarios
 
-**"Oglądam film z NASa poza domem":**
+**"Watching a movie from my NAS while away from home:"**
 ```
-Discovery:    KIP tracker → "Runner A ma resource X"
+Discovery:    KIP tracker → "Runner A has resource X"
 Connection:   WebRTC (ICE/STUN) → data channel
 Exchange:     KIP wire → request chunks
 Semantics:    Streaming ext (sequential) + Auth ext (JWT) + Encryption ext (AES)
-Application:  HLS.js w przeglądarce
+Application:  HLS.js in the browser
 ```
 
-**"Pobieram torrent":**
+**"Downloading a torrent:"**
 ```
 Discovery:    BT tracker → "Peers B,C,D"
 Connection:   TCP
 Exchange:     BT wire → bridge ext → KIP internal
-Semantics:    brak — raw download
-Application:  plik na dysku
+Semantics:    none — raw download
+Application:  file on disk
 ```
 
-**"Syncuję 2 NASy":**
+**"Syncing 2 NAS devices:"**
 ```
 Discovery:    KIP tracker → "Runner B online"
-Connection:   WebRTC lub LAN HTTP
+Connection:   WebRTC or LAN HTTP
 Exchange:     KIP wire
 Semantics:    Sync ext (op log) + Auth ext + Encryption ext
-Application:  Runner B ma kopię
+Application:  Runner B has a copy
 ```
 
-### Otwarte pytania
+### Open Questions
 
-1. **Discovery + signaling: razem czy osobno w spec?** W naszej implementacji to jeden WebSocket. Ale koncepcyjnie to dwie role (REGISTRY vs SIGNALER). Czy jeden KIP czy dwa?
+1. **Discovery + signaling: together or separate in spec?** In our implementation it's one WebSocket. But conceptually these are two roles (REGISTRY vs SIGNALER). One KIP or two?
 
-2. **Discovery protocol wire format:** Definiujemy konkretny format (jak KIP-0001 definiuje binarny framing) czy abstrakcyjny interfejs + referencyjna implementacja?
+2. **Discovery protocol wire format:** Do we define a concrete format (like KIP-0001 defines binary framing) or an abstract interface + reference implementation?
 
-3. **Capability advertisement:** REGISTRY powinno w handshake powiedzieć peerowi: "wymagam auth, oferuję relay, nie oferuję signaling". Peer decyduje czy chce gadać.
+3. **Capability advertisement:** REGISTRY should tell the peer during handshake: "I require auth, I offer relay, I don't offer signaling." Peer decides whether to proceed.
 
-4. **Extension negotiation na discovery protocol:** KIP-0003 teraz działa tylko peer ↔ peer. Czy REGISTRY też negocjuje extensiony? Czy to osobny mechanizm (capability advertisement)?
+4. **Extension negotiation on discovery protocol:** KIP-0003 currently only works peer ↔ peer. Should REGISTRY also negotiate extensions? Or is that a separate mechanism (capability advertisement)?
 
-## Powiązane
+## Related
 
-- [tracker-manifest-authority.md](tracker-manifest-authority.md) — tracker jako autorytet federacji
-- KIP drafty: [KIP-0001](KIP-0001-wire-protocol.md), [KIP-0002](KIP-0002-peer-discovery.md), [KIP-0003](KIP-0003-extension-negotiation.md)
+- [tracker-manifest-authority.md](tracker-manifest-authority.md) — tracker as federation authority
+- KIP drafts: [KIP-0001](KIP-0001-wire-protocol.md), [KIP-0002](KIP-0002-peer-discovery.md), [KIP-0003](KIP-0003-extension-negotiation.md)

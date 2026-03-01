@@ -195,9 +195,14 @@ An extension spec (e.g. KIP-0004) MUST define behavior on both layers if it appl
 - Discovery of extensions (which extensions exist) — docs/website, not protocol.
 - Extension dependencies (e.g. KIP-0006 requires KIP-0005) — defined in the extension's spec, not in core negotiation.
 
-## Open Questions
+## 9. Design Principles
 
-1. Should wire extension negotiation be a separate message type after Handshake, or part of the Handshake? Current: part of Handshake (simpler).
-2. Should an extension be able to reject a connection? (E.g. KIP-0004 requires auth, peer without auth = disconnect.) Current: the extension decides in OnActivate(), may send Error.
-3. Is message type 0x80 (generic) sufficient, or should extensions have dedicated message types?
-4. Should the discovery manifest use the same binary format as wire extensions, or is JSON fine? Current decision: JSON (because the discovery protocol is JSON-based).
+The extension system is intentionally unopinionated. KIP-0003 defines the **mechanism** for negotiation and message routing, not the **policy** of what extensions should do or how networks should behave.
+
+Key principles:
+- **The REGISTRY manifest (KIP-0002) governs network behavior.** If a network requires auth, encryption, or specific extensions, the manifest says so. Peers that don't comply don't join. This is resolved at the discovery layer, before wire connections happen.
+- **Extensions define their own requirements.** An extension MAY reject a connection in OnActivate() by sending Error. An extension MAY require other extensions as dependencies. These are concerns of the individual extension spec, not of the negotiation mechanism.
+- **Message routing is flexible.** The generic extension message (0x80) with ext_id routing works for all extensions. Extensions that need dedicated message types for performance MAY reserve types in the 0x81-0xFF range — this is documented in the extension's own spec, not mandated by KIP-0003.
+- **Format follows context.** Wire protocol extensions use binary format (matching KIP-0001). Discovery manifest uses JSON (matching KIP-0002). The extension ID namespace is shared, the encoding is not.
+
+These decisions are final. The negotiation mechanism is minimal by design — complexity belongs in individual extensions and REGISTRY manifests, not in core.

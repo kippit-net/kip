@@ -276,7 +276,16 @@ Peer A (seeder)                              Peer B (leecher)
 - Too large (16MB) = too coarse granularity, slow playback start
 - 2MB = sweet spot: 4GB movie = 2,000 chunks, bitfield = 250 bytes, reasonable granularity
 
-**Chunk size is per-resource** and communicated in the Bitfield message (total_chunks + resource size allows deriving chunk size). In phase 0 it's fixed (2MB). Configurable chunk size is a potential KIP extension.
+**Chunk size is determined by the REGISTRY manifest** (KIP-0002 section 4.2). The manifest MAY specify chunk size strategy — fixed size, per-resource size, or leave it to extensions. Different networks may use different strategies:
+
+- A media streaming tracker might mandate 2MB chunks for optimal playback buffering
+- A file sync tracker might use smaller chunks (64KB) for better delta synchronization
+- A bulk storage tracker might use larger chunks (8MB) to reduce overhead
+- A tracker serving mixed content might allow per-resource chunk sizes
+
+The core wire protocol does not dictate chunk size policy. It receives chunk data of whatever size the peers agreed upon through their REGISTRY's rules.
+
+**Phase 0 default:** fixed 2MB, no configuration needed.
 
 ## 8. Transport Interface
 
@@ -325,8 +334,10 @@ The protocol does NOT manage the transport. It doesn't know how the connection w
 - **Choking/unchoking** (BT-style bandwidth allocation) → not needed with 1-5 peers, potentially a KIP extension in the future
 - **Piece selection strategy** (rarest-first, sequential) → implementation detail, not spec. Streaming plugin (KIP-0006) overrides to sequential.
 
-## Open Questions
+## Resolved Questions
 
-1. Should chunk size be in the Handshake (per-connection) or in the Bitfield (per-resource)?
-2. Should ResourceUpdate REMOVE immediately cancel in-flight Requests for that resource?
-3. Should Error have an optional resource_id field (per-resource error vs per-connection error)?
+1. **Chunk size location:** Chunk size is governed by the REGISTRY manifest, not hardcoded in the wire protocol. The manifest defines chunking strategy (fixed, per-resource, or delegated to extensions). See section 7.
+
+2. **ResourceUpdate REMOVE and in-flight Requests:** REMOVE in the core wire protocol is a simple signal — "I stopped seeding this resource." Behavior regarding in-flight requests, history preservation, and replication consequences is defined by the sync/replication extension (KIP-0007), not by the core wire protocol. Core behavior: pending requests for a removed resource time out normally (30s). Extensions MAY define smarter behavior (immediate cancel, history sync before remove, etc.).
+
+3. **Error scope (per-resource vs per-connection):** Error (0x09) in the core wire protocol is terminal — it closes the connection. This is intentional for a minimal core: if something goes wrong, disconnect and reconnect. Extensions that need partial failure handling (e.g. a sync extension where one resource is corrupted but others are fine) SHOULD define their own error signaling mechanism via extension messages (0x80+), leaving the core Error for genuinely fatal situations (version mismatch, malformed messages, protocol violations).

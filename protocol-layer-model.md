@@ -162,15 +162,17 @@ Semantics:    Sync ext (op log) + Auth ext + Encryption ext
 Application:  Runner B has a copy
 ```
 
-### Open Questions
+### Resolved Questions
 
-1. **Discovery + signaling: together or separate in spec?** In our implementation it's one WebSocket. But conceptually these are two roles (REGISTRY vs SIGNALER). One KIP or two?
+All architectural questions from the initial design phase have been resolved in the KIP specs:
 
-2. **Discovery protocol wire format:** Do we define a concrete format (like KIP-0001 defines binary framing) or an abstract interface + reference implementation?
+1. **Discovery + signaling:** Together in KIP-0002 as one protocol with separate interfaces. REGISTRY and SIGNALER are distinct roles that MAY be split into separate services — the spec allows it, the reference implementation combines them.
 
-3. **Capability advertisement:** REGISTRY should tell the peer during handshake: "I require auth, I offer relay, I don't offer signaling." Peer decides whether to proceed.
+2. **Discovery protocol format:** Abstract interface (section 2) + reference implementation (section 4). JSON-based for the KIP tracker protocol. Other implementations may use any format.
 
-4. **Extension negotiation on discovery protocol:** KIP-0003 currently only works peer ↔ peer. Should REGISTRY also negotiate extensions? Or is that a separate mechanism (capability advertisement)?
+3. **Capability advertisement:** Resolved as the **manifest** mechanism (KIP-0002 section 4.2). REGISTRY sends rules, PEER accepts or leaves. Federation model.
+
+4. **Extension negotiation on discovery:** Resolved in KIP-0003 section 7. Wire extensions (PEER ↔ PEER) use binary negotiation via intersection. Discovery extensions (PEER ↔ REGISTRY) use the manifest — REGISTRY imposes, PEER complies. Separate mechanisms, shared extension ID namespace.
 
 ## Related
 

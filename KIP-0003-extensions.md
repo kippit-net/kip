@@ -159,7 +159,22 @@ The following built-in extensions are defined or planned for the Kippit protocol
 | `webrtc-signaling` | Connection | tracker, peer | Planned | WebRTC SDP/ICE exchange for NAT traversal. |
 | `mdns-discovery` | Discovery | peer | Planned | LAN zero-config peer discovery via mDNS/DNS-SD. |
 
-Each built-in extension will have its own spec document in the KIP repository (e.g. `ext-chunk-exchange.md`, `ext-kippit-tracker.md`).
+### Governance & Operations (future)
+
+Extensions for network governance, resource management, and business logic. Not needed for PoC — needed for production networks with multiple participants and shared resources.
+
+| Name | Layer | Roles | Status | Description |
+|---|---|---|---|---|
+| `lease-agreement` | Semantics | peer, tracker | Future | Terms of hosting between peers. Storage limits, duration, SLA, what happens on disconnect. |
+| `metered-usage` | Semantics | peer, tracker | Future | Bandwidth and storage accounting. Usage reporting to tracker or between peers. |
+| `quota` | Semantics | tracker | Future | Resource limits enforced by tracker. Max storage, bandwidth, resources per peer. |
+| `reputation` | Semantics | tracker | Future | Peer reliability scoring. Uptime, response time, fulfillment rate. Influences mesh allocation. |
+| `billing` | Semantics | tracker | Future | Payment and settlement for hosting/bandwidth. Integrates with external payment systems. |
+| `moderation` | Semantics | tracker | Future | Content policy enforcement. Flagging, takedown, abuse reporting. |
+
+These extensions compose with the technical layer. For example, mesh hosting requires `chunk-exchange` + `sync` + `lease-agreement` + `metered-usage` — the technical extensions move data, the governance extensions manage the relationship.
+
+Each built-in extension has its own spec document in the KIP repository (e.g. `ext-chunk-exchange.md`, `ext-kippit-tracker.md`).
 
 ## 6. Extension Composability
 

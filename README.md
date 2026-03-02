@@ -27,6 +27,17 @@ KIP does not define how data is exchanged, how peers connect, or what security m
 | [`webrtc-signaling`](ext-webrtc-signaling.md) | Connection | tracker, peer | Draft | WebRTC SDP/ICE exchange |
 | [`mdns-discovery`](ext-mdns-discovery.md) | Discovery | peer | Draft | LAN zero-config discovery |
 
+### Governance & Operations (future)
+
+| Name | Layer | Roles | Description |
+|---|---|---|---|
+| `lease-agreement` | Semantics | peer, tracker | Terms of hosting between peers (storage, duration, SLA) |
+| `metered-usage` | Semantics | peer, tracker | Bandwidth and storage accounting |
+| `quota` | Semantics | tracker | Resource limits per peer |
+| `reputation` | Semantics | tracker | Peer reliability scoring |
+| `billing` | Semantics | tracker | Payment for hosting/bandwidth |
+| `moderation` | Semantics | tracker | Content policy enforcement |
+
 External extensions use repository paths (e.g. `github.com/someone/cool-extension`). See KIP-0003.
 
 ## Architecture

@@ -1,11 +1,11 @@
 # KIP-0002: Manifest
 
 **Status:** Draft
-**Version:** 1.0
+**Version:** 2.0
 
 ## Abstract
 
-KIP-0002 defines the **manifest** — a JSON document that every KIP node serves to describe itself. The manifest declares what the node is, what it does, what protocol it speaks, and who else it knows.
+KIP-0002 defines the **manifest** — a JSON document that every KIP node serves to describe itself. The manifest declares what the node is, what interfaces it exposes, what protocol it speaks, and who else it knows.
 
 Any node in a KIP network — peer, tracker, relay, or any combination — MUST be able to serve its manifest when asked.
 
@@ -24,6 +24,8 @@ GET /.well-known/kip/manifest.json
 
 A node that cannot serve HTTP (e.g. a peer behind NAT with no open ports) MAY deliver its manifest through other means — embedded in a handshake message, published at a known URL by a third party, or exchanged out-of-band. The format is the same regardless of delivery method.
 
+The manifest is always public. What appears in it is controlled by the node's configuration and optionally by the `manifest-visibility` extension. Interfaces or extensions that the node does not want to publish simply do not appear in the manifest — the node runs them internally without advertising them.
+
 ## 2. Manifest Schema
 
 ```json
@@ -31,8 +33,7 @@ A node that cannot serve HTTP (e.g. a peer behind NAT with no open ports) MAY de
   "kip": 1,
   "protocol": "kippit",
   "version": "1.0.0",
-  "roles": ["peer"],
-  "extensions": [],
+  "interfaces": [],
   "rules": {},
   "network": []
 }
@@ -45,10 +46,9 @@ A node that cannot serve HTTP (e.g. a peer behind NAT with no open ports) MAY de
 | `kip` | integer | YES | KIP spec version. Currently `1`. |
 | `protocol` | string | YES | Protocol identifier. `"kippit"` for the Kippit protocol. Other protocols may use KIP as a framework with their own identifier. |
 | `version` | string | YES | Protocol version (semver). Currently `"1.0.0"`. |
-| `roles` | string[] | YES | Roles this node fulfills. See section 3. |
-| `extensions` | object[] | NO | Active extensions. See section 4. |
+| `interfaces` | object[] | YES | Interfaces this node exposes. See section 3. |
 | `rules` | object | NO | Network rules. Contents defined by extensions. |
-| `network` | object[] | NO | Known nodes and services. See section 5. |
+| `network` | object[] | NO | Known nodes and services. See section 6. |
 | `name` | string | NO | Human-readable name for this node. |
 | `description` | string | NO | Human-readable description. |
 
@@ -61,44 +61,116 @@ The smallest valid manifest:
   "kip": 1,
   "protocol": "kippit",
   "version": "1.0.0",
-  "roles": ["peer"]
+  "interfaces": [
+    { "id": "default", "role": "peer" }
+  ]
 }
 ```
 
-This says: "I exist, I speak Kippit protocol v1.0.0, I'm a peer. I have no extensions, no special rules, and I don't know anyone else."
+This says: "I exist, I speak Kippit protocol v1.0.0, I have one interface as a peer with no extensions."
 
-## 3. Roles
+## 3. Interfaces
 
-Roles declare what a node does. Kippit protocol v1.0.0 defines two roles:
+An **interface** is a context in which a node operates. A node may expose multiple interfaces — each with its own role and set of extensions. The same node can be a peer in one context and a tracker in another, or a peer in two contexts with different extension configurations.
+
+```json
+{
+  "interfaces": [
+    {
+      "id": "lan-video",
+      "role": "peer",
+      "extensions": [
+        {"name": "chunk-exchange", "version": "1.0.0"},
+        {"name": "hls-streaming", "version": "1.0.0"},
+        {"name": "mdns-discovery", "version": "1.0.0"}
+      ]
+    },
+    {
+      "id": "p2p-encrypted",
+      "role": "peer",
+      "extensions": [
+        {"name": "chunk-exchange", "version": "1.0.0"},
+        {"name": "aes-encryption", "version": "1.0.0"},
+        {"name": "kippit-tracker", "version": "1.0.0"}
+      ]
+    }
+  ]
+}
+```
+
+### 3.1 Interface Fields
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | string | YES | Unique identifier for this interface within the manifest. Free-form string. |
+| `role` | string | YES | Role this interface fulfills. See section 4. |
+| `description` | string | NO | Human-readable description of what this interface does. |
+| `extensions` | object[] | NO | Extensions active in this interface. See section 5. |
+
+### 3.2 Interface Semantics
+
+- Each interface is independent. Extensions in one interface do not affect another.
+- The same extension MAY appear in multiple interfaces with different configurations.
+- A node with no published interfaces has nothing to offer (but may still run unpublished interfaces internally).
+- Interfaces that the node does not want to publish simply do not appear in the manifest. The node runs them without advertising.
+
+### 3.3 Simple Nodes
+
+A node with a single purpose has a single interface:
+
+```json
+{
+  "interfaces": [
+    {
+      "id": "default",
+      "role": "peer",
+      "extensions": [
+        {"name": "chunk-exchange", "version": "1.0.0"}
+      ]
+    }
+  ]
+}
+```
+
+There is no shorthand. Even the simplest node uses the `interfaces` array.
+
+## 4. Roles
+
+Roles declare what a node does within an interface. Kippit protocol v1.0.0 defines two roles:
 
 | Role | Description |
 |---|---|
 | `peer` | Has data, wants data. Participates in data exchange with other peers. |
 | `tracker` | Coordinates the network. Knows who is online, helps peers find each other, may relay data. |
 
-A node may have multiple roles:
+Roles are extensible. Extensions MAY define additional roles for the Kippit protocol. Other protocols using KIP as a framework define their own role vocabulary.
+
+### 4.1 Role Capabilities
+
+The `tracker` role in Kippit protocol encompasses what KIP-0001 (Core) calls REGISTRY, SIGNALER, and RELAY. A tracker MAY fulfill all of these or a subset — the specific capabilities are declared via extensions within the interface:
+
+- A tracker with only `kippit-tracker` = REGISTRY
+- A tracker with `kippit-tracker` + `webrtc-signaling` = REGISTRY + SIGNALER
+- A tracker that also forwards data = REGISTRY + SIGNALER + RELAY
+
+### 4.2 Multiple Roles
+
+A node may fulfill different roles in different interfaces:
 
 ```json
 {
-  "roles": ["peer", "tracker"]
+  "interfaces": [
+    { "id": "tracker", "role": "tracker", "extensions": [...] },
+    { "id": "seeder", "role": "peer", "extensions": [...] }
+  ]
 }
 ```
 
-Roles are extensible. Extensions MAY define additional roles for the Kippit protocol. Other protocols using KIP as a framework define their own role vocabulary.
+This replaces the old `"roles": ["peer", "tracker"]` flat array. Roles are now per-interface, tied to the extensions that implement them.
 
-### 3.1 Role Capabilities
+## 5. Extensions
 
-The `tracker` role in Kippit protocol encompasses what KIP-0001 (Core) calls REGISTRY, SIGNALER, and RELAY. A tracker MAY fulfill all of these or a subset — the specific capabilities are declared via extensions and the `network` field:
-
-- A tracker that only does discovery = REGISTRY
-- A tracker that also relays connection setup = REGISTRY + SIGNALER
-- A tracker that also forwards data = REGISTRY + SIGNALER + RELAY
-
-The manifest doesn't enumerate sub-capabilities as roles. Instead, extensions and the network map make capabilities discoverable.
-
-## 4. Extensions
-
-The `extensions` field lists active extensions with their versions and configuration. Extension identification follows KIP-0003 — built-in extensions use short names, external extensions use repository paths.
+Extensions within an interface list active extensions with their versions and configuration. Extension identification follows KIP-0003 — built-in extensions use short names, external extensions use repository paths.
 
 ```json
 {
@@ -128,11 +200,11 @@ The `extensions` field lists active extensions with their versions and configura
 | `version` | string | YES | Extension version (semver). |
 | `config` | object | NO | Extension-specific configuration. Schema defined by the extension spec. |
 
-Extensions listed in the manifest are **available** on this node. Whether they are **required** for participants is declared in `rules`.
+Extensions listed in an interface are **available** in that context. Whether they are **required** for network participants is declared in `rules`.
 
-## 5. Rules
+## 5.1 Rules
 
-The `rules` field contains network governance and participation requirements:
+The `rules` field contains network governance and participation requirements. Rules are global — they apply to the node, not to a specific interface:
 
 ```json
 {
@@ -148,7 +220,7 @@ The `rules` field contains network governance and participation requirements:
 | `governance` | string | `"federated"` (default), `"democratic"`, `"hybrid"`. See KIP-0001 section 3.2. |
 | `required_extensions` | string[] | Extension names that participants MUST support. See KIP-0003. |
 
-Extensions MAY define additional rule fields. For example, an auth extension (KIP-0004) might add `"auth_required": true` to rules. A chunk exchange extension might add `"chunk_size": 2097152`. The rules object is open — unknown fields are ignored by nodes that don't understand them.
+Extensions MAY define additional rule fields. For example, `jwt-auth` adds `"auth_required": true` to rules. `chunk-exchange` adds `"chunk_size": 2097152`. The rules object is open — unknown fields are ignored by nodes that don't understand them.
 
 ## 6. Network Map
 
@@ -167,11 +239,6 @@ The `network` field lists other nodes and services this node knows about:
       "roles": ["relay"],
       "protocol": "TURN",
       "description": "TURN relay for NAT traversal"
-    },
-    {
-      "url": "https://kippit.net/api/library",
-      "roles": [],
-      "description": "Content listing API"
     }
   ]
 }
@@ -189,7 +256,7 @@ The network map enables **mesh discovery** — a node joining a network learns a
 
 ## 7. Examples
 
-### 7.1 Kippit Tracker (Phase 1)
+### 7.1 Kippit Tracker
 
 ```json
 {
@@ -197,106 +264,180 @@ The network map enables **mesh discovery** — a node joining a network learns a
   "protocol": "kippit",
   "version": "1.0.0",
   "name": "kippit.net",
-  "roles": ["tracker"],
-  "extensions": [
-    {"name": "kippit-tracker", "version": "1.0.0"},
-    {"name": "jwt-auth", "version": "1.0.0", "config": {"method": "ES256"}},
-    {"name": "aes-encryption", "version": "1.0.0", "config": {"cipher": "AES-128-CBC"}},
-    {"name": "hls-streaming", "version": "1.0.0"},
-    {"name": "webrtc-signaling", "version": "1.0.0"}
+  "interfaces": [
+    {
+      "id": "kippit-network",
+      "role": "tracker",
+      "extensions": [
+        {"name": "kippit-tracker", "version": "1.0.0", "config": {"endpoint": "wss://tracker.kippit.net/ws", "announce_mode": "per-resource", "push_peers": true}},
+        {"name": "jwt-auth", "version": "1.0.0", "config": {"method": "ES256", "jwks_url": "https://kippit.net/.well-known/jwks.json"}},
+        {"name": "webrtc-signaling", "version": "1.0.0", "config": {"ice_servers": [{"urls": ["stun:stun.kippit.net:3478"]}]}},
+        {"name": "resource-catalog", "version": "1.0.0", "config": {"endpoint": "/api/library", "format": "json", "searchable": true}},
+        {"name": "resource-metadata", "version": "1.0.0", "config": {"endpoint": "/api/metadata"}}
+      ]
+    }
   ],
   "rules": {
     "governance": "federated",
-    "required_extensions": ["jwt-auth", "aes-encryption"]
+    "required_extensions": ["jwt-auth", "aes-encryption", "key-delivery"]
   },
   "network": [
+    {"url": "stun:stun.kippit.net:3478", "roles": [], "protocol": "STUN"}
+  ]
+}
+```
+
+### 7.2 NAS Runner (Multi-Interface)
+
+A runner that serves video unencrypted on LAN, encrypted over P2P, and replicates with other NASes:
+
+```json
+{
+  "kip": 1,
+  "protocol": "kippit",
+  "version": "1.0.0",
+  "name": "jm-nas",
+  "interfaces": [
     {
-      "url": "https://turn.kippit.net",
-      "roles": ["relay"],
-      "protocol": "TURN"
+      "id": "lan-video",
+      "role": "peer",
+      "description": "LAN video streaming, no encryption",
+      "extensions": [
+        {"name": "chunk-exchange", "version": "1.0.0"},
+        {"name": "hls-streaming", "version": "1.0.0"},
+        {"name": "mdns-discovery", "version": "1.0.0", "config": {"port": 9000}},
+        {"name": "resource-catalog", "version": "1.0.0"},
+        {"name": "resource-metadata", "version": "1.0.0"}
+      ]
     },
     {
-      "url": "https://kippit.net/api/library",
-      "roles": [],
-      "description": "Content listing and user API"
+      "id": "p2p-video",
+      "role": "peer",
+      "description": "P2P encrypted video via Kippit network",
+      "extensions": [
+        {"name": "chunk-exchange", "version": "1.0.0"},
+        {"name": "kippit-tracker", "version": "1.0.0", "config": {"endpoint": "wss://tracker.kippit.net/ws"}},
+        {"name": "jwt-auth", "version": "1.0.0"},
+        {"name": "aes-encryption", "version": "1.0.0", "config": {"cipher": "AES-128-CBC"}},
+        {"name": "key-delivery", "version": "1.0.0", "config": {"methods": ["api"]}},
+        {"name": "hls-streaming", "version": "1.0.0"},
+        {"name": "webrtc-signaling", "version": "1.0.0"}
+      ]
+    },
+    {
+      "id": "replication",
+      "role": "peer",
+      "description": "NAS-to-NAS encrypted replication",
+      "extensions": [
+        {"name": "chunk-exchange", "version": "1.0.0"},
+        {"name": "aes-encryption", "version": "1.0.0"},
+        {"name": "key-delivery", "version": "1.0.0", "config": {"methods": ["peer-exchange"]}},
+        {"name": "sync", "version": "1.0.0", "config": {"history": true, "conflict_strategy": "last-writer-wins"}}
+      ]
+    }
+  ],
+  "network": [
+    {"url": "wss://tracker.kippit.net/ws", "roles": ["tracker"]},
+    {"url": "http://192.168.1.50:9000", "roles": ["peer"], "protocol": "HTTP", "description": "LAN direct"}
+  ]
+}
+```
+
+Note: this runner may also have unpublished interfaces (e.g. a local HLS server on 127.0.0.1:8080) that do not appear in the manifest. The node runs them internally; the manifest only shows what the node wants others to know about.
+
+### 7.3 Phase 0 CLI Tool
+
+```json
+{
+  "kip": 1,
+  "protocol": "kippit",
+  "version": "1.0.0",
+  "interfaces": [
+    {
+      "id": "default",
+      "role": "peer"
     }
   ]
 }
 ```
 
-### 7.2 Runner on a NAS (Phase 1)
+### 7.4 Hybrid BT + Kippit Tracker
 
 ```json
 {
   "kip": 1,
   "protocol": "kippit",
   "version": "1.0.0",
-  "name": "my-nas",
-  "roles": ["peer"],
-  "extensions": [
-    {"name": "chunk-exchange", "version": "1.0.0"},
-    {"name": "jwt-auth", "version": "1.0.0"},
-    {"name": "aes-encryption", "version": "1.0.0"},
-    {"name": "hls-streaming", "version": "1.0.0"},
-    {"name": "webrtc-signaling", "version": "1.0.0"},
-    {"name": "mdns-discovery", "version": "1.0.0"}
-  ],
-  "network": [
+  "name": "hybrid-tracker",
+  "interfaces": [
     {
-      "url": "wss://tracker.kippit.net/ws",
-      "roles": ["tracker"],
-      "manifest": "https://tracker.kippit.net/.well-known/kip/manifest.json"
+      "id": "kippit",
+      "role": "tracker",
+      "extensions": [
+        {"name": "kippit-tracker", "version": "1.0.0", "config": {"endpoint": "wss://tracker.example.com/ws", "announce_mode": "per-resource"}},
+        {"name": "resource-catalog", "version": "1.0.0", "config": {"searchable": true}}
+      ]
+    },
+    {
+      "id": "bittorrent",
+      "role": "tracker",
+      "extensions": [
+        {"name": "bt-tracker", "version": "1.0.0", "config": {"protocol": "http", "port": 6969, "scrape": true}}
+      ]
     }
   ]
 }
 ```
 
-### 7.3 Phase 0 CLI Tool (No Extensions)
+### 7.5 BT + KIP Bridge Peer
+
+A peer that serves the same data to both BT and KIP networks:
 
 ```json
 {
   "kip": 1,
   "protocol": "kippit",
   "version": "1.0.0",
-  "roles": ["peer"]
-}
-```
-
-### 7.4 Hypothetical BT-Compatible Tracker
-
-```json
-{
-  "kip": 1,
-  "protocol": "bittorrent",
-  "version": "1.0.0",
-  "roles": ["tracker"],
-  "extensions": [
-    {"name": "bt-bridge", "version": "1.0.0"}
-  ],
-  "rules": {
-    "governance": "federated"
-  }
-}
-```
-
-### 7.5 Hypothetical WebRTC Signaling Server
-
-```json
-{
-  "kip": 1,
-  "protocol": "kippit",
-  "version": "1.0.0",
-  "roles": ["tracker"],
-  "extensions": [
-    {"name": "webrtc-signaling", "version": "1.0.0"}
-  ],
-  "description": "WebRTC signaling only. No discovery, no relay.",
-  "network": [
+  "name": "bridge-seeder",
+  "interfaces": [
     {
-      "url": "stun:stun.kippit.net:3478",
-      "roles": [],
-      "protocol": "STUN"
+      "id": "kip-peer",
+      "role": "peer",
+      "extensions": [
+        {"name": "chunk-exchange", "version": "1.0.0"},
+        {"name": "kippit-tracker", "version": "1.0.0"}
+      ]
+    },
+    {
+      "id": "bt-peer",
+      "role": "peer",
+      "extensions": [
+        {"name": "bt-bridge", "version": "1.0.0", "config": {"listen_port": 6881}}
+      ]
     }
+  ]
+}
+```
+
+### 7.6 WebRTC Signaling Server
+
+```json
+{
+  "kip": 1,
+  "protocol": "kippit",
+  "version": "1.0.0",
+  "interfaces": [
+    {
+      "id": "signaling",
+      "role": "tracker",
+      "description": "WebRTC signaling only. No discovery, no relay.",
+      "extensions": [
+        {"name": "webrtc-signaling", "version": "1.0.0"}
+      ]
+    }
+  ],
+  "network": [
+    {"url": "stun:stun.kippit.net:3478", "roles": [], "protocol": "STUN"}
   ]
 }
 ```

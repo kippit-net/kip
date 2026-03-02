@@ -32,6 +32,7 @@ sync
 messaging
 bt-bridge
 bt-tracker
+manifest-visibility
 webrtc-signaling
 mdns-discovery
 ```
@@ -58,25 +59,31 @@ The path points to the repository where the extension spec and (optionally) refe
 
 ## 3. Extensions in Manifests
 
-Extensions are declared in the manifest's `extensions` field:
+Extensions are declared per interface in the manifest (see KIP-0002 section 3):
 
 ```json
 {
-  "extensions": [
+  "interfaces": [
     {
-      "name": "chunk-exchange",
-      "version": "1.0.0"
-    },
-    {
-      "name": "jwt-auth",
-      "version": "1.0.0",
-      "config": {
-        "method": "ES256"
-      }
-    },
-    {
-      "name": "github.com/someone/custom-discovery",
-      "version": "0.2.0"
+      "id": "p2p-video",
+      "role": "peer",
+      "extensions": [
+        {
+          "name": "chunk-exchange",
+          "version": "1.0.0"
+        },
+        {
+          "name": "jwt-auth",
+          "version": "1.0.0",
+          "config": {
+            "method": "ES256"
+          }
+        },
+        {
+          "name": "github.com/someone/custom-discovery",
+          "version": "0.2.0"
+        }
+      ]
     }
   ]
 }
@@ -164,6 +171,7 @@ The following built-in extensions are defined or planned for the Kippit protocol
 | `messaging` | Semantics | peer | Planned | Real-time small data exchange between peers. |
 | `bt-bridge` | Exchange | peer | Planned | BitTorrent wire protocol compatibility layer. |
 | `bt-tracker` | Discovery | tracker | Planned | BitTorrent tracker protocol (HTTP/UDP announce, scrape). |
+| `manifest-visibility` | Semantics | tracker, peer | Planned | Controls what appears in public manifest (public/unlisted/hidden). |
 | `webrtc-signaling` | Connection | tracker, peer | Planned | WebRTC SDP/ICE exchange for NAT traversal. |
 | `mdns-discovery` | Discovery | peer | Planned | LAN zero-config peer discovery via mDNS/DNS-SD. |
 

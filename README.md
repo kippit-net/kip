@@ -37,6 +37,7 @@ KIP does not define how data is exchanged, how peers connect, or what security m
 | `reputation` | Semantics | tracker | Peer reliability scoring |
 | `billing` | Semantics | tracker | Payment for hosting/bandwidth |
 | `moderation` | Semantics | tracker | Content policy enforcement |
+| `governance` | Semantics | peer, tracker | Democratic/hybrid voting and rule negotiation |
 
 External extensions use repository paths (e.g. `github.com/someone/cool-extension`). See KIP-0003.
 

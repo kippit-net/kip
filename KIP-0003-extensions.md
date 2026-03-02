@@ -171,6 +171,7 @@ Extensions for network governance, resource management, and business logic. Not 
 | `reputation` | Semantics | tracker | Future | Peer reliability scoring. Uptime, response time, fulfillment rate. Influences mesh allocation. |
 | `billing` | Semantics | tracker | Future | Payment and settlement for hosting/bandwidth. Integrates with external payment systems. |
 | `moderation` | Semantics | tracker | Future | Content policy enforcement. Flagging, takedown, abuse reporting. |
+| `governance` | Semantics | peer, tracker | Future | Democratic/hybrid rule negotiation. Voting mechanism, quorum, rule proposals, enforcement delegation. |
 
 These extensions compose with the technical layer. For example, mesh hosting requires `chunk-exchange` + `sync` + `lease-agreement` + `metered-usage` — the technical extensions move data, the governance extensions manage the relationship.
 

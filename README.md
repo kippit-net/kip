@@ -47,6 +47,20 @@ KIP does not define how data is exchanged, how peers connect, or what security m
 
 External extensions use repository paths (e.g. `github.com/someone/cool-extension`). See KIP-0003.
 
+## Transports
+
+Transport specs define how bytes flow between nodes. Each interface in a manifest declares its transport(s).
+
+| Name | Type | Stream | Reliable | NAT | Browser | Spec |
+|---|---|---|---|---|---|---|
+| TCP | `tcp` | stream | yes | no | no | [transport-tcp.md](transport-tcp.md) |
+| UDP | `udp` | datagram | no | partial | no | [transport-udp.md](transport-udp.md) |
+| uTP | `utp` | stream | yes | partial | no | [transport-utp.md](transport-utp.md) |
+| HTTP | `http` | request-response | yes | yes | yes | [transport-http.md](transport-http.md) |
+| WebSocket | `websocket` | message | yes | yes | yes | [transport-websocket.md](transport-websocket.md) |
+| WebRTC | `webrtc` | message/stream | configurable | yes | yes | [transport-webrtc.md](transport-webrtc.md) |
+| Unix socket | `unix` | stream | yes | N/A | no | [transport-unix.md](transport-unix.md) |
+
 ## Architecture
 
 - [protocol-layer-model.md](protocol-layer-model.md) — 5-layer model with roles (design document)

@@ -149,11 +149,18 @@ How nodes communicate using this extension:
 - **State machines** (if any) — connection lifecycle, handshake flow.
 - **Error handling** — what happens when things go wrong.
 
-### 4.6 Dependencies
+### 4.6 Transport Compatibility
+
+Which transports this extension works on and which it doesn't. This is critical for manifest validation — an interface with incompatible transport and extensions is malformed.
+
+- **Compatible transports:** List each transport type and whether the extension works on it.
+- **Requirements:** What the transport must provide (e.g. reliable delivery, HTTP request-response, bidirectional messaging).
+
+### 4.7 Dependencies
 
 What other extensions this extension requires or optionally interacts with.
 
-### 4.7 Example
+### 4.8 Example
 
 At least one concrete example showing the extension in use: a manifest fragment, a message exchange, or a flow diagram.
 

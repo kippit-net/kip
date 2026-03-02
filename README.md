@@ -29,6 +29,7 @@ KIP does not define how data is exchanged, how peers connect, or what security m
 | [`bt-bridge`](ext-bt-bridge.md) | Exchange | peer | Draft | BitTorrent wire protocol compatibility |
 | [`bt-tracker`](ext-bt-tracker.md) | Discovery | tracker | Draft | BitTorrent tracker protocol (announce, scrape) |
 | [`manifest-visibility`](ext-manifest-visibility.md) | Semantics | tracker, peer | Draft | Controls what appears in public manifest |
+| [`endpoint-discovery`](ext-endpoint-discovery.md) | Discovery | peer, tracker | Draft | Endpoint map (sitemap-like) |
 | [`webrtc-signaling`](ext-webrtc-signaling.md) | Connection | tracker, peer | Draft | WebRTC SDP/ICE exchange |
 | [`mdns-discovery`](ext-mdns-discovery.md) | Discovery | peer | Draft | LAN zero-config discovery |
 

@@ -33,6 +33,7 @@ messaging
 bt-bridge
 bt-tracker
 manifest-visibility
+endpoint-discovery
 webrtc-signaling
 mdns-discovery
 ```
@@ -59,7 +60,7 @@ The path points to the repository where the extension spec and (optionally) refe
 
 ## 3. Extensions in Manifests
 
-Extensions are declared per interface in the manifest (see KIP-0002 section 3):
+Extensions are declared per interface in the manifest (see KIP-0002 section 3). Each interface has a transport and a set of extensions — together they form a communication stack:
 
 ```json
 {
@@ -67,6 +68,9 @@ Extensions are declared per interface in the manifest (see KIP-0002 section 3):
     {
       "id": "p2p-video",
       "role": "peer",
+      "transport": [
+        { "type": "webrtc", "signaling": "tracker-conn" }
+      ],
       "extensions": [
         {
           "name": "chunk-exchange",
@@ -172,6 +176,7 @@ The following built-in extensions are defined or planned for the Kippit protocol
 | `bt-bridge` | Exchange | peer | Planned | BitTorrent wire protocol compatibility layer. |
 | `bt-tracker` | Discovery | tracker | Planned | BitTorrent tracker protocol (HTTP/UDP announce, scrape). |
 | `manifest-visibility` | Semantics | tracker, peer | Planned | Controls what appears in public manifest (public/unlisted/hidden). |
+| `endpoint-discovery` | Discovery | peer, tracker | Planned | Endpoint map (sitemap-like listing of available HTTP paths). |
 | `webrtc-signaling` | Connection | tracker, peer | Planned | WebRTC SDP/ICE exchange for NAT traversal. |
 | `mdns-discovery` | Discovery | peer | Planned | LAN zero-config peer discovery via mDNS/DNS-SD. |
 
@@ -197,18 +202,17 @@ Each built-in extension has its own spec document in the KIP repository (e.g. `e
 
 Extensions are independent by default. A node runs whatever combination its configuration and network require. Examples:
 
-| Node | Extensions | Why |
+| Node | Interfaces (transport → extensions) | Why |
 |---|---|---|
-| Kippit runner (phase 1) | chunk-exchange, kippit-tracker, jwt-auth, aes-encryption, key-delivery, hls-streaming, resource-catalog, resource-metadata, webrtc-signaling, mdns-discovery | Full Kippit stack |
-| Kippit runner (phase 0) | chunk-exchange, kippit-tracker, resource-catalog | Minimum viable peer with browseable files |
-| Kippit tracker | kippit-tracker, jwt-auth, webrtc-signaling, resource-catalog | Discovery + auth + signaling + index |
-| BT peer | bt-bridge, chunk-exchange | Speaks BT and KIP from the same data |
-| BT tracker | bt-tracker | HTTP/UDP announce and scrape for BT clients |
-| Hybrid tracker | kippit-tracker, bt-tracker | Bridges BT and KIP discovery |
-| LAN video server | chunk-exchange, hls-streaming, mdns-discovery, resource-catalog, resource-metadata | No auth, no tracker, LAN only, browseable |
-| Signaling-only server | webrtc-signaling | Just relays SDP/ICE |
-| Public file index | chunk-exchange, resource-catalog, resource-metadata | Browseable, searchable, no auth |
-| Custom network | chunk-exchange, github.com/acme/custom-auth | Mix of built-in and external |
+| Kippit runner (phase 1) | **tracker-conn** (ws) → kippit-tracker, jwt-auth; **p2p** (webrtc) → chunk-exchange, aes-encryption, jwt-auth, key-delivery, hls-streaming; **lan** (http) → hls-streaming, resource-catalog, mdns-discovery, endpoint-discovery | Full Kippit stack, 3 interfaces |
+| Kippit runner (phase 0) | **tracker-conn** (ws) → kippit-tracker; **p2p** (tcp) → chunk-exchange | Minimum viable peer |
+| Kippit tracker | **tracker** (ws) → kippit-tracker, jwt-auth, webrtc-signaling, resource-catalog, endpoint-discovery | Discovery + auth + signaling + index |
+| BT peer | **kip** (webrtc) → chunk-exchange; **bt** (utp/tcp) → bt-bridge | Same data, two protocols |
+| BT tracker | **announce** (http) → bt-tracker | HTTP announce and scrape |
+| Hybrid tracker | **kippit** (ws) → kippit-tracker; **bt** (http) → bt-tracker | BT and KIP discovery |
+| LAN video server | **lan** (http) → hls-streaming, resource-catalog, resource-metadata, mdns-discovery, endpoint-discovery | No auth, no tracker, browseable |
+| Signaling server | **signaling** (ws) → webrtc-signaling | Just relays SDP/ICE |
+| Public file index | **http** (http) → resource-catalog, resource-metadata, endpoint-discovery; **p2p** (tcp) → chunk-exchange | Browseable, downloadable, no auth |
 
 ## 7. Configuration Cascading
 

@@ -174,7 +174,125 @@ Extensions are independent by default. A node runs whatever combination its conf
 | Signaling-only server | webrtc-signaling | Just relays SDP/ICE |
 | Custom network | chunk-exchange, github.com/acme/custom-auth | Mix of built-in and external |
 
-## 7. Versioning
+## 7. Configuration Cascading
+
+A tracker's manifest drives peer configuration. When a peer joins a network, the tracker's rules determine what extensions the peer must run and how.
+
+### 7.1 How Rules Cascade
+
+```
+Tracker manifest                    Peer configuration
+┌──────────────────────┐           ┌──────────────────────────┐
+│ required_extensions:  │           │                          │
+│   - jwt-auth          │──────────►│ Must enable jwt-auth     │
+│   - aes-encryption    │──────────►│ Must enable aes-encrypt  │
+│                       │           │                          │
+│ rules:                │           │                          │
+│   auth_required: true │──────────►│ Must provide JWT token   │
+│   encryption_required │──────────►│ Must encrypt all chunks  │
+│   chunk_size: 2097152 │──────────►│ Must use 2MB chunks      │
+│   announce_mode:      │           │                          │
+│     per-resource      │──────────►│ Must list resource_ids   │
+└──────────────────────┘           └──────────────────────────┘
+```
+
+A peer that cannot satisfy the tracker's requirements MUST NOT join the network.
+
+### 7.2 Extension Configuration Negotiation
+
+Extensions MAY define configurable parameters with alternatives. When two nodes negotiate, they find a compatible configuration:
+
+**Example: encryption cipher negotiation.**
+
+Tracker mandates `aes-encryption` but doesn't specify cipher. Peer A supports `AES-128-CBC` and `AES-256-GCM`. Peer B supports `AES-256-GCM` and `ChaCha20-Poly1305`. They negotiate `AES-256-GCM` (the intersection).
+
+This is extension-specific — each extension defines:
+- What parameters are configurable
+- What alternatives exist
+- How to negotiate between options
+- What happens when no compatible option exists (error, fallback, reject)
+
+### 7.3 Extension Spec: Configuration Section
+
+In addition to the template (section 4), extensions SHOULD define a **configuration section** that documents:
+
+| What | Description |
+|---|---|
+| **Configurable parameters** | What can be configured (cipher, chunk size, mode, etc.) |
+| **Alternatives** | What options exist for each parameter |
+| **Defaults** | What value is used when not specified |
+| **Tracker-mandatable** | Which parameters a tracker can force via rules |
+| **Negotiable** | Which parameters peers negotiate between themselves |
+| **Fixed** | Which parameters are not configurable |
+
+### 7.4 Resource Identification
+
+A tracker MAY mandate how resources are identified in its network. For example:
+
+- "Hash file paths using SHA256 and announce the first 16 bytes as resource_id" — this is the Kippit default
+- "Use content-based hashing" — a different network might require this
+- "Encrypt file paths before hashing" — for privacy-sensitive networks
+
+The hashing algorithm, input format, and output size are part of the network's rules. A peer joining the network must comply. This is declared in the tracker's manifest rules:
+
+```json
+{
+  "rules": {
+    "resource_id": {
+      "algorithm": "SHA256",
+      "input": "runner_id:relative_path",
+      "output_bytes": 16
+    }
+  }
+}
+```
+
+## 8. Network Profiles
+
+A **network profile** is an informal description of what a specific network requires. It's not a KIP concept — it's a convenience for documenting "if you want to join network X, here's what you need."
+
+### 8.1 Kippit Network Profile
+
+The Kippit network (`kippit.net`) requires:
+
+| Requirement | Extension | Config |
+|---|---|---|
+| Authentication | `jwt-auth` | ES256, JWKS at `kippit.net/.well-known/jwks.json` |
+| Encryption | `aes-encryption` | AES-128-CBC (HLS standard) |
+| Data exchange | `chunk-exchange` | 2MB chunks |
+| Discovery | `kippit-tracker` | WebSocket, per-resource announce |
+| NAT traversal | `webrtc-signaling` | ICE servers provided by tracker |
+| Video | `hls-streaming` | m3u8 manifests served over HTTP |
+
+Optional:
+| Feature | Extension | When |
+|---|---|---|
+| LAN discovery | `mdns-discovery` | Runner on local network |
+| Replication | `sync` | Multiple runners, change tracking |
+| Small data | `messaging` | Status updates, notifications |
+
+The tracker manifest enforces `jwt-auth` and `aes-encryption` as required. Other extensions are available but not mandated — a peer without `hls-streaming` can still participate in the network (it just can't serve video efficiently).
+
+### 8.2 Other Network Profiles (Hypothetical)
+
+**Public file sharing network:**
+- No auth, no encryption
+- `chunk-exchange` only
+- `announce_mode: per-resource`
+- Anyone can join
+
+**Corporate LAN-only network:**
+- `jwt-auth` required (corporate SSO)
+- `aes-encryption` required
+- `mdns-discovery` only (no external tracker)
+- No `webrtc-signaling` (everything on LAN)
+
+**BitTorrent bridge:**
+- `bt-bridge` only
+- No KIP-specific extensions
+- Interoperates with standard BT clients
+
+## 9. Versioning
 
 Extension versions follow semver:
 

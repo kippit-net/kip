@@ -63,6 +63,17 @@ When combined with `hls-streaming`, encryption follows the HLS standard:
 - IV derived from segment sequence number or specified in the m3u8 manifest via `#EXT-X-KEY`
 - Key URL in m3u8 points to the key delivery mechanism (API endpoint, in-manifest, etc.)
 
+## Configuration
+
+| Parameter | Alternatives | Default | Tracker-mandatable | Negotiable |
+|---|---|---|---|---|
+| `cipher` | `AES-128-CBC`, `AES-256-GCM`, `ChaCha20-Poly1305` | `AES-128-CBC` | YES | YES |
+| `key_delivery` | `out-of-band`, `in-band` | `out-of-band` | YES | NO |
+
+**Cipher negotiation:** When two peers both support `aes-encryption` but with different ciphers, they use the first mutually supported cipher from the seeder's preference list. If no overlap → extension inactive for this connection, Error if encryption is required.
+
+**Tracker override:** If the tracker mandates `"cipher": "AES-128-CBC"` in rules, all peers must use that cipher. No negotiation.
+
 ## Dependencies
 
 - `chunk-exchange` — encrypts/decrypts Piece message data.

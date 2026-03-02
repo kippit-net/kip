@@ -24,10 +24,14 @@ chunk-exchange
 kippit-tracker
 jwt-auth
 aes-encryption
+key-delivery
 hls-streaming
+resource-catalog
+resource-metadata
 sync
 messaging
 bt-bridge
+bt-tracker
 webrtc-signaling
 mdns-discovery
 ```
@@ -152,10 +156,14 @@ The following built-in extensions are defined or planned for the Kippit protocol
 | `kippit-tracker` | Discovery | tracker, peer | Planned | WebSocket-based peer discovery and signaling. |
 | `jwt-auth` | Semantics | tracker, peer | Planned | JWT authentication (ES256). |
 | `aes-encryption` | Semantics | peer | Planned | Per-chunk encryption (AES-128-CBC, AES-256-GCM). |
+| `key-delivery` | Semantics | peer, tracker | Planned | Encryption key delivery (API, URL, peer-exchange, manual). |
 | `hls-streaming` | Semantics | peer | Planned | Sequential chunk priority, HLS manifest generation. |
+| `resource-catalog` | Discovery | peer, tracker | Planned | Browseable resource listing (JSON/text, pagination, search). |
+| `resource-metadata` | Semantics | peer, tracker | Planned | Per-resource metadata (name, size, type, extras). |
 | `sync` | Semantics | peer | Planned | Multi-node replication, operation log, conflict resolution. |
 | `messaging` | Semantics | peer | Planned | Real-time small data exchange between peers. |
 | `bt-bridge` | Exchange | peer | Planned | BitTorrent wire protocol compatibility layer. |
+| `bt-tracker` | Discovery | tracker | Planned | BitTorrent tracker protocol (HTTP/UDP announce, scrape). |
 | `webrtc-signaling` | Connection | tracker, peer | Planned | WebRTC SDP/ICE exchange for NAT traversal. |
 | `mdns-discovery` | Discovery | peer | Planned | LAN zero-config peer discovery via mDNS/DNS-SD. |
 
@@ -183,11 +191,15 @@ Extensions are independent by default. A node runs whatever combination its conf
 
 | Node | Extensions | Why |
 |---|---|---|
-| Kippit runner (phase 1) | chunk-exchange, kippit-tracker, jwt-auth, aes-encryption, hls-streaming, webrtc-signaling, mdns-discovery | Full Kippit stack |
-| Kippit runner (phase 0) | chunk-exchange, kippit-tracker | Minimum viable peer |
-| BT client | bt-bridge | Just speaks BitTorrent |
-| LAN video server | chunk-exchange, hls-streaming, mdns-discovery | No auth, no tracker, LAN only |
+| Kippit runner (phase 1) | chunk-exchange, kippit-tracker, jwt-auth, aes-encryption, key-delivery, hls-streaming, resource-catalog, resource-metadata, webrtc-signaling, mdns-discovery | Full Kippit stack |
+| Kippit runner (phase 0) | chunk-exchange, kippit-tracker, resource-catalog | Minimum viable peer with browseable files |
+| Kippit tracker | kippit-tracker, jwt-auth, webrtc-signaling, resource-catalog | Discovery + auth + signaling + index |
+| BT peer | bt-bridge, chunk-exchange | Speaks BT and KIP from the same data |
+| BT tracker | bt-tracker | HTTP/UDP announce and scrape for BT clients |
+| Hybrid tracker | kippit-tracker, bt-tracker | Bridges BT and KIP discovery |
+| LAN video server | chunk-exchange, hls-streaming, mdns-discovery, resource-catalog, resource-metadata | No auth, no tracker, LAN only, browseable |
 | Signaling-only server | webrtc-signaling | Just relays SDP/ICE |
+| Public file index | chunk-exchange, resource-catalog, resource-metadata | Browseable, searchable, no auth |
 | Custom network | chunk-exchange, github.com/acme/custom-auth | Mix of built-in and external |
 
 ## 7. Configuration Cascading
@@ -275,10 +287,13 @@ The Kippit network (`kippit.net`) requires:
 |---|---|---|
 | Authentication | `jwt-auth` | ES256, JWKS at `kippit.net/.well-known/jwks.json` |
 | Encryption | `aes-encryption` | AES-128-CBC (HLS standard) |
+| Key delivery | `key-delivery` | API + URL methods |
 | Data exchange | `chunk-exchange` | 2MB chunks |
 | Discovery | `kippit-tracker` | WebSocket, per-resource announce |
 | NAT traversal | `webrtc-signaling` | ICE servers provided by tracker |
 | Video | `hls-streaming` | m3u8 manifests served over HTTP |
+| Resource listing | `resource-catalog` | JSON format, searchable via API |
+| Resource info | `resource-metadata` | Name, type, size, HLS extras |
 
 Optional:
 | Feature | Extension | When |
@@ -287,7 +302,7 @@ Optional:
 | Replication | `sync` | Multiple runners, change tracking |
 | Small data | `messaging` | Status updates, notifications |
 
-The tracker manifest enforces `jwt-auth` and `aes-encryption` as required. Other extensions are available but not mandated — a peer without `hls-streaming` can still participate in the network (it just can't serve video efficiently).
+The tracker manifest enforces `jwt-auth`, `aes-encryption`, and `key-delivery` as required. Other extensions are available but not mandated — a peer without `hls-streaming` can still participate in the network (it just can't serve video efficiently).
 
 ### 8.2 Other Network Profiles (Hypothetical)
 
@@ -303,10 +318,20 @@ The tracker manifest enforces `jwt-auth` and `aes-encryption` as required. Other
 - `mdns-discovery` only (no external tracker)
 - No `webrtc-signaling` (everything on LAN)
 
-**BitTorrent bridge:**
-- `bt-bridge` only
-- No KIP-specific extensions
-- Interoperates with standard BT clients
+**BitTorrent bridge (peer):**
+- `bt-bridge` — speaks BT wire protocol to BT peers
+- `chunk-exchange` — speaks KIP to KIP peers
+- Same data served to both worlds
+
+**BitTorrent tracker:**
+- `bt-tracker` — HTTP/UDP announce and scrape for BT clients
+- Optionally combined with `kippit-tracker` for hybrid BT+KIP discovery
+
+**Public file index:**
+- `chunk-exchange` + `resource-catalog` + `resource-metadata`
+- No auth, no encryption
+- `resource-catalog` with `searchable: true` — public browseable index
+- Anyone can join and list files
 
 ## 9. Versioning
 

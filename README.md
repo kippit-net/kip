@@ -20,10 +20,14 @@ KIP does not define how data is exchanged, how peers connect, or what security m
 | [`kippit-tracker`](ext-kippit-tracker.md) | Discovery | tracker, peer | Draft | WebSocket-based peer discovery and signaling |
 | [`jwt-auth`](ext-jwt-auth.md) | Semantics | tracker, peer | Draft | JWT authentication (ES256) |
 | [`aes-encryption`](ext-aes-encryption.md) | Semantics | peer | Draft | Data encryption (AES) |
+| [`key-delivery`](ext-key-delivery.md) | Semantics | peer, tracker | Draft | Encryption key delivery (API, URL, peer-exchange, manual) |
 | [`hls-streaming`](ext-hls-streaming.md) | Semantics | peer | Draft | Sequential priority, HLS manifest |
+| [`resource-catalog`](ext-resource-catalog.md) | Discovery | peer, tracker | Draft | Browseable resource listing |
+| [`resource-metadata`](ext-resource-metadata.md) | Semantics | peer, tracker | Draft | Per-resource metadata (name, size, type) |
 | [`sync`](ext-sync.md) | Semantics | peer | Draft | Multi-node replication with change tracking |
 | [`messaging`](ext-messaging.md) | Semantics | peer | Draft | Real-time small data |
 | [`bt-bridge`](ext-bt-bridge.md) | Exchange | peer | Draft | BitTorrent wire protocol compatibility |
+| [`bt-tracker`](ext-bt-tracker.md) | Discovery | tracker | Draft | BitTorrent tracker protocol (announce, scrape) |
 | [`webrtc-signaling`](ext-webrtc-signaling.md) | Connection | tracker, peer | Draft | WebRTC SDP/ICE exchange |
 | [`mdns-discovery`](ext-mdns-discovery.md) | Discovery | peer | Draft | LAN zero-config discovery |
 

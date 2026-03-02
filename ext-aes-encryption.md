@@ -77,6 +77,7 @@ When combined with `hls-streaming`, encryption follows the HLS standard:
 ## Dependencies
 
 - `chunk-exchange` — encrypts/decrypts Piece message data.
+- `key-delivery` — recommended. Defines how the decryption key reaches the recipient. Without it, key delivery is entirely implementation-defined.
 
 ## Example
 
